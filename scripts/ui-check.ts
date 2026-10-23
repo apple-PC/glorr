@@ -146,7 +146,19 @@ async function main(): Promise<void> {
     const loadingHidden = await cdp.eval(`document.getElementById('loadingscreen').classList.contains('hidden')`);
     allOk = check('加载屏已隐藏', loadingHidden === true) && allOk;
 
-    // 2. 注册
+    // 2. 注册(仅当页面与服务端同源可联机时执行;Pages 静态站只能做界面检查)
+    const canPlay = PAGE.includes('localhost') || PAGE.includes('127.0.0.1');
+    if (!canPlay) {
+      const note = await cdp.eval(`document.getElementById('acc-server-note').textContent`);
+      allOk = check('账号页显示服务器提示', typeof note === 'string' && (note as string).length > 0, String(note).slice(0, 60)) && allOk;
+      const errs2 = cdp.exceptions.filter((e) => !e.includes('favicon'));
+      allOk = check('页面无未捕获异常', errs2.length === 0, errs2.slice(0, 2).join(' || ')) && allOk;
+      console.log(`\n[ui-check] ${allOk ? '全部通过(静态站仅界面检查)' : '存在失败项'}`);
+      cdp.close();
+      chrome?.kill();
+      try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* ignore */ }
+      process.exit(allOk ? 0 : 1);
+    }
     const name = `ui${Date.now() % 100000}`;
     await cdp.eval(`(() => {
       document.getElementById('tab-register').click();
