@@ -132,6 +132,15 @@ export class Ui {
   private accMode: 'login' | 'register' = 'login';
 
   bindAccount(): void {
+    // 管理后台链接:保留当前查询参数(公网托管的 sharecode)
+    const adminLink = document.getElementById('adminlink') as HTMLAnchorElement | null;
+    if (adminLink) adminLink.href = `admin${location.search}`;
+    // 账号页:切换服务器
+    document.getElementById('acc-server-switch')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.openSettings();
+    });
+
     const tabLogin = document.getElementById('tab-login')!;
     const tabRegister = document.getElementById('tab-register')!;
     const setMode = (mode: 'login' | 'register') => {
@@ -161,6 +170,12 @@ export class Ui {
   showAccount(): void {
     this.accScreen.classList.remove('hidden');
     document.getElementById('menuscreen')!.classList.add('hidden');
+  }
+
+  /** 账号页显示当前选中的服务器 */
+  setAccountServerName(name: string): void {
+    const el = document.getElementById('acc-server-name');
+    if (el) el.textContent = name;
   }
 
   hideAccount(): void {

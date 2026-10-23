@@ -69,14 +69,39 @@ const ui = new Ui(net, {
   onSendChat: (text) => net.send({ t: 'chat', text }),
   onLogin: (name, password) => {
     ui.accountMsg('');
-    net.login(name, password);
+    void (async () => {
+      if (!(await ensureConnected())) return;
+      net.login(name, password);
+    })();
   },
   onRegister: (name, password) => {
     ui.accountMsg('');
-    net.register(name, password);
+    void (async () => {
+      if (!(await ensureConnected())) return;
+      net.register(name, password);
+    })();
   },
   onSelectServer: (id) => void switchServer(id),
 });
+
+/** 确保已连接到当前服务器;失败时在账号页显示可操作的错误 */
+async function ensureConnected(): Promise<boolean> {
+  if (net.connected) return true;
+  const server = getServer(currentServerId) ?? SERVERS[0];
+  ui.accountMsg(`正在连接 ${server.name}…`);
+  try {
+    await net.connect(server.url);
+    return true;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    let hint = `无法连接 ${server.name}:${reason}`;
+    if (location.protocol === 'https:' && server.url.startsWith('ws://')) {
+      hint += '。https 页面不能连接 ws:// 本地服务器——本机游玩请直接打开 http://localhost:8080';
+    }
+    ui.accountMsg(hint);
+    return false;
+  }
+}
 
 // ---------- 收藏持久化(菜单飘浮花瓣) ----------
 
@@ -123,6 +148,13 @@ function saveCollection(inv: { id: string; rarity: number }[]): void {
 
 // ---------- 网络事件 ----------
 
+/** 统一入口:显示账号屏(附带当前服务器名与背景) */
+function showAccountScreen(): void {
+  const server = getServer(currentServerId) ?? SERVERS[0];
+  ui.setAccountServerName(server.name);
+  showAccountScreen();
+}
+
 net.onAuthOk = (info) => {
   account = { name: info.name, level: info.level, kills: info.kills, admin: info.admin };
   token = info.token;
@@ -136,9 +168,7 @@ net.onAuthErr = (reason) => {
   if (switching) {
     switching = false;
     ui.hideSettings();
-    ui.showAccount();
-    accountBg.setPetals(loadCollection());
-    accountBg.start();
+    showAccountScreen();
     return;
   }
   if (inMenu) {
@@ -232,9 +262,7 @@ net.onClose = () => {
   inMenu = false;
   ui.addSysChat('与服务器断开连接');
   ui.toast('与服务器断开连接');
-  ui.showAccount();
-  accountBg.setPetals(loadCollection());
-  accountBg.start();
+  showAccountScreen();
 };
 
 // ---------- 界面流程 ----------
@@ -269,9 +297,7 @@ async function bootstrap(): Promise<void> {
       net.whoami(token);
       window.setTimeout(() => {
         if (!inMenu) {
-          ui.showAccount();
-          accountBg.setPetals(loadCollection());
-          accountBg.start();
+          showAccountScreen();
         }
       }, 2500);
       return;
@@ -279,9 +305,7 @@ async function bootstrap(): Promise<void> {
       /* 落到账号屏 */
     }
   }
-  ui.showAccount();
-  accountBg.setPetals(loadCollection());
-  accountBg.start();
+  showAccountScreen();
 }
 
 function enterMenu(): void {
@@ -298,7 +322,7 @@ function enterMenu(): void {
 function onReady(): void {
   if (!account.name) {
     ui.toast('请先登录或注册账号');
-    ui.showAccount();
+    showAccountScreen();
     return;
   }
   readyBtn.disabled = true;
@@ -356,17 +380,13 @@ async function switchServer(id: string): Promise<void> {
     } else {
       switching = false;
       ui.hideSettings();
-      ui.showAccount();
-      accountBg.setPetals(loadCollection());
-      accountBg.start();
+      showAccountScreen();
     }
   } catch {
     switching = false;
     ui.hideSettings();
-    ui.showAccount();
+    showAccountScreen();
     ui.accountMsg(`无法连接 ${server.name}`);
-    accountBg.setPetals(loadCollection());
-    accountBg.start();
   }
 }
 

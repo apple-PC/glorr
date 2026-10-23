@@ -35,10 +35,18 @@ interface Overview {
 let adminToken = localStorage.getItem('glorr.admin.token') || '';
 let pollTimer = 0;
 
+// 公网托管页面带 sharecode 查询参数,API 请求必须原样带上,否则会被网关拦截
+const SHARE = location.search.startsWith('?') ? location.search.slice(1) : '';
+
 const $ = (id: string) => document.getElementById(id)!;
 
+function apiPath(path: string): string {
+  if (!SHARE) return path;
+  return path + (path.includes('?') ? '&' : '?') + SHARE;
+}
+
 function api(path: string, options: RequestInit = {}): Promise<Response> {
-  return fetch(path, {
+  return fetch(apiPath(path), {
     ...options,
     headers: {
       'content-type': 'application/json',

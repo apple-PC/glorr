@@ -482,8 +482,22 @@ html, body {
 #accountscreen input:focus { border-color: rgba(120,230,140,0.65); }
 .accmsg { font-size: 12.5px; color: #ffb4b4; min-height: 18px; font-weight: 600; }
 .acchint { font-size: 11.5px; color: rgba(255,255,255,0.7); margin-top: 10px; max-width: 300px; text-align: center; line-height: 1.7; }
+.accserver { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 10px; }
+.accserver b { color: #9fe3a8; margin: 0 2px; }
+.accserver a { color: #7dd3fc; text-decoration: none; margin-left: 8px; }
+.accserver a:hover { text-decoration: underline; }
 
 /* ============ 设置弹窗 ============ */
+#settingsmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 16, 10, 0.55);
+  backdrop-filter: blur(2px);
+}
 .sgroup { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.5); margin: 4px 0 8px; letter-spacing: 1px; }
 #serverlist { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .srow-server {
