@@ -9,6 +9,7 @@ export type ClientMsg =
   | { t: 'moveInv'; from: number; to: number } // 背包内移动
   | { t: 'craft'; id: string; rarity: number } // 5 合 1 合成
   | { t: 'drop'; uid: number }                 // 丢弃背包花瓣
+  | { t: 'chat'; text: string }                // 房间聊天
   | { t: 'respawn' }
   | { t: 'ping'; ts: number };
 
@@ -44,7 +45,8 @@ export type ServerMsg =
       kills: number;
       invuln: number;                // 剩余无敌秒数
     }
-  | { t: 'lo'; ps: [number, [string, number][]][] } // 其他玩家花瓣概览(低频)
+  | { t: 'lo'; ps: [number, number, [string, number][]][] } // 其他玩家 [id, 等级, 花瓣概览]
+  | { t: 'chat'; from: string; text: string }
   | { t: 'ev'; k: string; v?: number }
   | { t: 'pong'; ts: number; srv: number };
 

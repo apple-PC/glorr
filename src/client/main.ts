@@ -1,8 +1,7 @@
-// glorr 客户端入口:网络 / 输入 / 预测 / 渲染 / UI 总装
-import { MAX_SLOTS, PLAYER, WORLD } from '@shared/constants';
+// glorr 客户端入口:加载屏 → 主菜单 → 选图游玩
+import { MAX_SLOTS, PLAYER, WORLD, rarityName } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, rotationSpeed } from '@shared/data/petals';
-import { rarityName } from '@shared/constants';
 import { TAU } from '@shared/math';
 import { Camera } from '@client/camera';
 import { Input } from '@client/input';
@@ -10,6 +9,7 @@ import { Net } from '@client/net';
 import { Particles } from '@client/particles';
 import { Renderer } from '@client/render';
 import { Sfx } from '@client/audio';
+import { MenuBg } from '@client/menu';
 import { Ui } from '@client/ui';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -22,18 +22,20 @@ const particles = new Particles();
 const camera = new Camera(window.innerWidth, window.innerHeight);
 const input = new Input(canvas);
 const renderer = new Renderer(canvas);
+const menuBg = new MenuBg(document.getElementById('menubg') as HTMLCanvasElement);
 
 const ui = new Ui(net, {
   onEquip: (uid, slot) => net.send({ t: 'equip', uid, slot }),
   onUnequip: (slot) => net.send({ t: 'unequip', slot }),
-  onMoveInv: (from, to) => net.send({ t: 'moveInv', from, to }),
   onDrop: (uid) => net.send({ t: 'drop', uid }),
   onCraft: (id, rarity) => net.send({ t: 'craft', id, rarity }),
   onRespawn: () => net.send({ t: 'respawn' }),
   onToggleSound: () => {
     sfx.enabled = !sfx.enabled;
     ui.setSoundLabel(sfx.enabled);
+    if (sfx.enabled) sfx.ensure();
   },
+  onSendChat: (text) => net.send({ t: 'chat', text }),
 });
 
 // 本地预测状态(服务端权威,客户端只做表现)
@@ -52,9 +54,54 @@ let running = false;
 let lastT = performance.now();
 let inputAcc = 0;
 let minimapAcc = 0;
+let listAcc = 0;
 let lastHitSfx = 0;
 
-// ---------- 服务器地址解析 ----------
+// ---------- 收藏持久化(主菜单飘浮花瓣) ----------
+
+const SHOWCASE: { id: string; rarity: number }[] = [
+  { id: 'basic', rarity: 0 },
+  { id: 'fast', rarity: 0 },
+  { id: 'leaf', rarity: 1 },
+  { id: 'rose', rarity: 1 },
+  { id: 'stinger', rarity: 1 },
+  { id: 'rock', rarity: 2 },
+  { id: 'missile', rarity: 2 },
+  { id: 'web', rarity: 2 },
+  { id: 'faster', rarity: 2 },
+  { id: 'honey', rarity: 2 },
+];
+
+function loadCollection(): { id: string; rarity: number }[] {
+  try {
+    const raw = localStorage.getItem('glorr.collection');
+    if (raw) {
+      const arr = JSON.parse(raw) as { id: string; rarity: number }[];
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    }
+  } catch {
+    /* ignore */
+  }
+  return SHOWCASE;
+}
+
+function saveCollection(inv: { id: string; rarity: number }[]): void {
+  const seen = new Map<string, { id: string; rarity: number }>();
+  for (const it of inv) {
+    const key = `${it.id}:${it.rarity}`;
+    if (!seen.has(key)) seen.set(key, { id: it.id, rarity: it.rarity });
+  }
+  const arr = [...seen.values()].slice(0, 24);
+  try {
+    localStorage.setItem('glorr.collection', JSON.stringify(arr));
+  } catch {
+    /* ignore */
+  }
+  menuBg.setPetals(arr);
+}
+
+// ---------- 服务器地址 ----------
+
 function defaultServer(): string {
   const params = new URLSearchParams(location.search);
   const fromUrl = params.get('server');
@@ -68,52 +115,80 @@ function defaultServer(): string {
   return '';
 }
 
+// ---------- 界面流程 ----------
+
 const nameInput = document.getElementById('nameinput') as HTMLInputElement;
 const serverInput = document.getElementById('serverinput') as HTMLInputElement;
-const playBtn = document.getElementById('playbtn') as HTMLButtonElement;
+const readyBtn = document.getElementById('readybtn') as HTMLButtonElement;
+const gardenBtn = document.getElementById('map-garden') as HTMLButtonElement;
+const menuScreen = document.getElementById('menuscreen')!;
+
 nameInput.value = localStorage.getItem('glorr.name') || '';
 serverInput.value = defaultServer();
 
-async function start(): Promise<void> {
+// 加载屏 → 主菜单
+window.setTimeout(() => {
+  ui.hideLoading();
+  ui.showMenu();
+  menuBg.setPetals(loadCollection());
+  menuBg.start();
+}, 900);
+
+window.addEventListener('resize', () => menuBg.resize());
+
+function onReady(): void {
+  const name = nameInput.value.trim() || '花朵';
+  localStorage.setItem('glorr.name', name);
+  readyBtn.disabled = true;
+  readyBtn.textContent = '已就绪 ✓';
+  gardenBtn.classList.add('pulse');
+  ui.toast('选择地图开始游戏');
+}
+
+readyBtn.addEventListener('click', onReady);
+nameInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') onReady();
+});
+
+gardenBtn.addEventListener('click', () => {
+  if (readyBtn.disabled) void play();
+  else ui.toast('先点击「准备就绪」');
+});
+
+async function play(): Promise<void> {
   const name = nameInput.value.trim() || '花朵';
   const server = serverInput.value.trim();
   if (!server) {
-    ui.toast('请填写服务器地址(本地开发默认 ws://localhost:8080)');
+    ui.toast('请填写服务器地址(本地默认 ws://localhost:8080)');
+    serverInput.focus();
     return;
   }
-  localStorage.setItem('glorr.name', name);
   localStorage.setItem('glorr.server', server);
   sfx.ensure();
-  playBtn.disabled = true;
-  playBtn.textContent = '连接中…';
+  gardenBtn.disabled = true;
+  gardenBtn.textContent = '连接中…';
   try {
     await net.connect(server, name);
   } catch (err) {
     ui.toast(err instanceof Error ? err.message : String(err));
-    playBtn.disabled = false;
-    playBtn.textContent = '开始游戏';
+    gardenBtn.disabled = false;
+    gardenBtn.textContent = '花园';
     return;
   }
-  playBtn.disabled = false;
-  playBtn.textContent = '开始游戏';
-  ui.hideStart();
+  gardenBtn.disabled = false;
+  gardenBtn.textContent = '花园';
+  ui.hideMenu();
+  menuBg.stop();
   running = true;
-  ui.toast('已连接,正在进入花园…');
 }
-
-playBtn.addEventListener('click', () => void start());
-nameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') void start();
-});
-serverInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') void start();
-});
 
 // ---------- 网络事件 ----------
 
 net.onYou = (s) => {
   const prev = net.self;
   ui.setSelf(s);
+  saveCollection(s.inv);
   const selfEnt = net.selfEnt();
   const justSpawned = selfEnt && (!prev || prev.dead) && !s.dead;
   if (justSpawned && selfEnt) {
@@ -125,8 +200,8 @@ net.onYou = (s) => {
     camera.snapTo(self.x, self.y);
     self.slotAngles = s.slotList.map((_, i) => (i / Math.max(1, s.slotList.length)) * TAU);
     particles.clear();
+    ui.hideDeath();
   } else if (selfEnt && !s.dead) {
-    // 误差修正(大跳变吸附,小误差平滑)
     const err = Math.hypot(selfEnt.x - self.x, selfEnt.y - self.y);
     if (err > 260) {
       self.x = selfEnt.x;
@@ -152,6 +227,9 @@ net.onEv = (k, v) => {
       sfx.play('death');
       particles.burst(self.x, self.y, '#ff8fb3', 26, 230, 5);
       ui.showDeath(net.self?.level ?? 1, net.self?.kills ?? 0);
+      break;
+    case 'respawn':
+      ui.hideDeath();
       break;
     case 'pickup':
       sfx.play('pickup');
@@ -183,23 +261,40 @@ net.onEntGone = (e) => {
   }
 };
 
+net.onChat = (from, text) => ui.addChat(from, text);
+
 net.onClose = () => {
   running = false;
-  ui.showStart();
+  ui.addSysChat('与服务器断开连接');
+  ui.showMenu();
+  menuBg.setPetals(loadCollection());
+  menuBg.start();
   ui.toast('与服务器断开连接');
 };
 
 // ---------- 键盘 ----------
+
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
+  if (e.key === 'Escape') {
+    ui.closeCraft();
+    (document.activeElement as HTMLElement | null)?.blur();
+    return;
+  }
+  if (ui.isChatFocused()) return;
+  if (e.key === 'Enter') {
     e.preventDefault();
-    ui.toggleInv();
-  } else if (e.key === 'Escape') {
-    ui.closePanels();
+    ui.focusChat();
+    return;
+  }
+  // 热键 1-9 / 0:装备背包条目
+  if (/^[0-9]$/.test(e.key)) {
+    const idx = e.key === '0' ? 9 : Number(e.key) - 1;
+    ui.equipEntry(idx);
   }
 });
 
 // ---------- 主循环 ----------
+
 function frame(): void {
   requestAnimationFrame(frame);
   const now = performance.now();
@@ -210,19 +305,18 @@ function frame(): void {
   net.tick(dt);
   const s = net.self;
   const selfEnt = net.selfEnt();
+  const chatFocused = ui.isChatFocused();
 
-  // 输入上报(20Hz)
+  // 输入上报(20Hz,聊天聚焦时暂停)
   inputAcc += dt;
-  if (inputAcc >= 0.05) {
+  if (inputAcc >= 0.05 && s && !s.dead && !chatFocused) {
     inputAcc = 0;
-    if (s && !s.dead) {
-      const [dx, dy] = input.vector(self.x, self.y, camera);
-      net.send({ t: 'in', x: dx, y: dy });
-    }
+    const [dx, dy] = input.vector(self.x, self.y, camera);
+    net.send({ t: 'in', x: dx, y: dy });
   }
 
   if (s && !s.dead) {
-    const [dx, dy] = input.vector(self.x, self.y, camera);
+    const [dx, dy] = chatFocused ? [0, 0] : input.vector(self.x, self.y, camera);
     if (dx !== 0 || dy !== 0) {
       self.ang = Math.atan2(dy, dx);
       const k = Math.min(1, PLAYER.accel * dt);
@@ -243,7 +337,6 @@ function frame(): void {
       self.vx *= 0.4;
       self.vy *= 0.4;
     }
-    // 花瓣角度推进
     const rot = rotationSpeed(s.slotList);
     for (let i = 0; i < s.slotList.length; i++) {
       if (!s.slotList[i]) continue;
@@ -278,7 +371,11 @@ function frame(): void {
   if (minimapAcc >= 0.25) {
     minimapAcc = 0;
     ui.drawMinimapFrame();
-    ui.setLatency(net.latency);
+  }
+  listAcc += dt;
+  if (listAcc >= 0.5) {
+    listAcc = 0;
+    ui.updatePlayerList();
   }
 }
 
@@ -311,6 +408,7 @@ function hitFx(s: { slotList: ({ id: string; cdPct: number } | null)[] }, now: n
 }
 
 // ---------- 尺寸 ----------
+
 function resize(): void {
   renderer.resize(dpr);
   camera.resize(window.innerWidth, window.innerHeight);

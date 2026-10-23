@@ -6,91 +6,109 @@
   <title>glorr — 社区共创花瓣对战</title>
   <meta name="description" content="glorr:开源社区共创的 Florr 式多人实时花瓣对战游戏" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23ffd94d'/><circle cx='16' cy='6' r='5' fill='%23ff8fb3'/><circle cx='16' cy='26' r='5' fill='%23ff8fb3'/><circle cx='6' cy='16' r='5' fill='%23ff8fb3'/><circle cx='26' cy='16' r='5' fill='%23ff8fb3'/></svg>" />
-  <script type="module" crossorigin src="/assets/index-DIQ_Nf71.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-ClqsdeW0.css">
+  <script type="module" crossorigin src="./assets/index-Bzdx0Oy_.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CExI_jHJ.css">
 </head>
 <body>
   <canvas id="game"></canvas>
 
-  <!-- HUD -->
+  <!-- ============ 游玩 HUD ============ -->
   <div id="hud" class="hidden">
-    <div id="topleft" class="panel">
-      <div id="levelrow"><span id="level">1</span><span class="lvl-label">级</span></div>
-      <div id="xpbar"><div id="xpfill"></div></div>
-      <div id="killrow">击杀 <span id="kills">0</span></div>
+    <!-- 左上图标栏 -->
+    <div id="iconrow">
+      <a class="iconbtn" id="ghbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <button class="iconbtn" id="craftbtn" title="合成(5 合 1)">
+        <svg viewBox="0 0 24 24"><path d="M14.7 7.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a1 1 0 0 0 0-1.4l-1.6-1.6a1 1 0 0 0-1.4 0L14.7 7.3zm-1.4 2.83-8.6 8.6a1 1 0 0 0 0 1.42l1.4 1.4a1 1 0 0 0 1.42 0l8.6-8.59-1.82-2.83zM3 21l2.6-.63 3.03-3.03-1.42-1.42L4.2 19 3 21z"/></svg>
+      </button>
+      <button class="iconbtn" id="soundbtn" title="音效开关">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>
+      </button>
     </div>
 
-    <div id="topright" class="panel">
+    <!-- 左上玩家列表 -->
+    <div id="playerlist"></div>
+
+    <!-- 右上任务 + 小地图 -->
+    <div id="questbox"><b>深入险境</b><span>送一朵花去 C9 最深处</span></div>
+    <div id="mapwrap">
       <canvas id="minimap" width="148" height="148"></canvas>
-      <div id="latency">-- ms</div>
+      <div id="zonename">花园</div>
     </div>
 
-    <div id="bottombar">
-      <div id="slots"></div>
-      <div id="actionrow">
-        <button id="invbtn" class="gbtn">背包</button>
-        <button id="craftbtn" class="gbtn">合成</button>
-        <button id="soundbtn" class="gbtn">音效:开</button>
-      </div>
+    <!-- 底部花瓣栏:上排已装备,下排背包(带热键) -->
+    <div id="petalbar">
+      <div id="equiprow"></div>
+      <div id="invrow"></div>
     </div>
 
-    <div id="toasts"></div>
-  </div>
-
-  <!-- 背包面板 -->
-  <div id="invpanel" class="panel hidden">
-    <div class="ptitle">背包 <span class="pcount" id="invcount">0/200</span></div>
-    <canvas id="invcanvas" width="294" height="300"></canvas>
-    <div class="phint">拖拽花瓣到下方槽位装备;拖出面板即丢弃</div>
-  </div>
-
-  <!-- 合成面板 -->
-  <div id="craftpanel" class="panel hidden">
-    <div class="ptitle">合成(5 合 1)</div>
-    <div class="crow">
-      <select id="craftselect"></select>
-    </div>
-    <div class="crow" id="craftinfo">选择要合成的花瓣</div>
-    <div class="crow"><canvas id="craftpreview" width="240" height="56"></canvas></div>
-    <div class="crow">
-      <button id="craftgo" class="gbtn primary" disabled>合成</button>
-    </div>
-    <div class="phint">成功率随稀有度递减;失败会随机损失 1-4 个材料</div>
-  </div>
-
-  <!-- 开始界面 -->
-  <div id="startscreen">
-    <div class="startbox panel">
-      <div class="logo">
-        <svg width="72" height="72" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#ffd94d"/><circle cx="16" cy="6" r="5" fill="#ff8fb3"/><circle cx="16" cy="26" r="5" fill="#ff8fb3"/><circle cx="6" cy="16" r="5" fill="#ff8fb3"/><circle cx="26" cy="16" r="5" fill="#ff8fb3"/></svg>
-      </div>
-      <h1>glorr</h1>
-      <p class="tagline">开源社区共创的 Florr 式多人实时花瓣对战</p>
-      <div class="field">
-        <label>昵称</label>
-        <input id="nameinput" maxlength="12" placeholder="花朵" />
-      </div>
-      <div class="field">
-        <label>服务器地址</label>
-        <input id="serverinput" placeholder="ws://localhost:8080" />
-      </div>
-      <button id="playbtn" class="gbtn primary big">开始游戏</button>
-      <div class="help">
-        <b>操作</b>:鼠标移动控制花朵 · 花瓣自动旋转攻击 · Tab 背包 · 拖拽装备/丢弃<br />
-        <b>目标</b>:击杀生物掉落花瓣,合成更高稀有度,从花园一路打向深处
-      </div>
-      <div class="startfoot">受 florr.io 启发的社区作品 · 资产原创 · <a href="https://github.com" target="_blank" rel="noopener">GitHub</a></div>
+    <!-- 左下聊天 -->
+    <div id="chatwrap">
+      <div id="chatlog"></div>
+      <input id="chatinput" maxlength="80" placeholder="(按 ENTER) 或点击此处聊天" />
     </div>
   </div>
 
-  <!-- 死亡界面 -->
+  <div id="toasts"></div>
+
+  <!-- ============ 合成弹窗 ============ -->
+  <div id="craftmodal" class="hidden">
+    <div class="modalbox">
+      <div class="mtitle">合成 <span class="msub">5 合 1 · 失败随机损失 1-4 个材料</span></div>
+      <div class="crow"><select id="craftselect"></select></div>
+      <div class="crow" id="craftinfo">选择要合成的花瓣</div>
+      <div class="crow"><canvas id="craftpreview" width="250" height="56"></canvas></div>
+      <div class="crow">
+        <button id="craftgo" class="greenbtn" disabled>合成</button>
+        <button id="craftclose" class="ghostbtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 死亡界面 ============ -->
   <div id="deathscreen" class="hidden">
-    <div class="deathbox panel">
+    <div class="modalbox deathbox">
+      <svg class="deadflower" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#8b8f6a"/><circle cx="16" cy="6" r="5" fill="#6a7050"/><circle cx="16" cy="26" r="5" fill="#6a7050"/><circle cx="6" cy="16" r="5" fill="#6a7050"/><circle cx="26" cy="16" r="5" fill="#6a7050"/></svg>
       <h2>你死了</h2>
       <div class="dstat">到达等级 <b id="deathlevel">1</b> · 击杀 <b id="deathkills">0</b></div>
       <div class="dhint">掉落物已散落在原地,趁别人捡走前跑尸也许能挽回一部分</div>
-      <button id="respawnbtn" class="gbtn primary big">重生</button>
+      <button id="respawnbtn" class="greenbtn big">重生</button>
     </div>
+  </div>
+
+  <!-- ============ 主菜单 ============ -->
+  <div id="menuscreen" class="hidden">
+    <canvas id="menubg"></canvas>
+    <div id="menuicons">
+      <a class="iconbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <button class="iconbtn" id="menusoundbtn" title="音效开关">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>
+      </button>
+    </div>
+    <div id="menucenter">
+      <div id="logo">glorr</div>
+      <input id="nameinput" maxlength="12" placeholder="昵称" />
+      <button id="readybtn" class="greenbtn big">准备就绪 ▶</button>
+      <div id="maprow">
+        <button class="mapbtn garden" id="map-garden">花园</button>
+        <button class="mapbtn desert" disabled>沙漠<i>soon</i></button>
+        <button class="mapbtn ocean" disabled>海洋<i>soon</i></button>
+        <button class="mapbtn jungle" disabled>丛林<i>soon</i></button>
+        <button class="mapbtn hell" disabled>深渊<i>soon</i></button>
+      </div>
+      <input id="serverinput" placeholder="服务器地址 ws://localhost:8080" />
+      <div id="menuhint">受 florr.io 启发的社区作品 · 资产原创 · <a href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener">GitHub</a></div>
+    </div>
+    <div id="copyright">© 2026 glorr community</div>
+  </div>
+
+  <!-- ============ 加载屏 ============ -->
+  <div id="loadingscreen">
+    <div id="loadlogo">glorr</div>
+    <div id="loadtext">加载中<i class="dots"><i>.</i><i>.</i><i>.</i></i></div>
   </div>
 
   <div id="dragghost" class="hidden"></div>

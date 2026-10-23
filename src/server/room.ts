@@ -73,6 +73,7 @@ class Player {
   slowFac = 0;
   joined = false;
   dirty = true; // 'you' 需要立即重发
+  lastChatAt = 0;
 }
 
 class Mob {
@@ -247,6 +248,15 @@ export class Room {
         p.inv.splice(idx, 1);
         this.spawnDrop(inst.id, inst.rarity, p.x + randRange(-20, 20), p.y + randRange(-20, 20));
         p.dirty = true;
+        break;
+      }
+      case 'chat': {
+        const text = String(msg.text ?? '').replace(/[<>]/g, '').trim().slice(0, 80);
+        if (!text) return;
+        if (this.now - p.lastChatAt < 1) return; // 1 秒发言间隔
+        p.lastChatAt = this.now;
+        const out: ServerMsg = { t: 'chat', from: p.name, text };
+        for (const q of this.players.values()) this.send(q, out);
         break;
       }
       case 'respawn':
@@ -1028,13 +1038,13 @@ export class Room {
 
       if (p.dirty || this.tick % 6 === 0) this.sendYou(p);
       if (loTick) {
-        const ps: [number, [string, number][]][] = [];
+        const ps: [number, number, [string, number][]][] = [];
         for (const q of this.players.values()) {
           if (q.dead) continue;
           if (dist2(q.x, q.y, p.x, p.y) > C.SNAPSHOT_RANGE * C.SNAPSHOT_RANGE) continue;
           const loadout: [string, number][] = [];
           for (const s of q.slots) if (s) loadout.push([s.id, s.rarity]);
-          ps.push([q.id, loadout]);
+          ps.push([q.id, q.level, loadout]);
         }
         this.send(p, { t: 'lo', ps });
       }

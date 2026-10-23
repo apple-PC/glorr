@@ -1,4 +1,4 @@
-/* glorr 客户端样式 —— 浅色圆角面板,Florr 式干净 UI */
+/* glorr 客户端样式 —— florr 式绿色主题:深色半透明面板 + 绿色主色 */
 * { box-sizing: border-box; }
 
 html, body {
@@ -7,10 +7,11 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1c2b1a;
+  background: #3d9e55;
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   user-select: none;
   -webkit-user-select: none;
+  color: #fff;
 }
 
 #game {
@@ -22,168 +23,237 @@ html, body {
 
 .hidden { display: none !important; }
 
-.panel {
-  background: rgba(255, 255, 255, 0.93);
-  border-radius: 14px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  color: #23282b;
+/* 通用深色面板 */
+.iconbtn, #questbox, #zonename, .chatline, .toast,
+#chatinput, .modalbox, .prow, #petalbar .eslot, #petalbar .islot {
+  background: rgba(14, 26, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(3px);
 }
 
-/* ---------- HUD ---------- */
+.greenbtn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 22px;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  background: #62c96e;
+  color: #0e2a14;
+  cursor: pointer;
+  transition: transform 0.08s, background 0.12s;
+}
+.greenbtn:hover { background: #74d97f; transform: translateY(-1px); }
+.greenbtn:active { transform: translateY(0); }
+.greenbtn:disabled { background: #4a7a52; color: rgba(255,255,255,0.5); cursor: not-allowed; transform: none; }
+.greenbtn.big { padding: 12px 30px; font-size: 17px; }
+
+.ghostbtn {
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  background: transparent;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+}
+.ghostbtn:hover { background: rgba(255,255,255,0.1); }
+
+/* ============ HUD ============ */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 
-#topleft {
-  position: absolute;
+/* 图标栏 */
+#iconrow, #menuicons {
+  position: fixed;
   top: 14px;
   left: 14px;
-  padding: 8px 12px;
-  min-width: 130px;
+  display: flex;
+  gap: 8px;
+  z-index: 30;
 }
-#levelrow { font-size: 20px; font-weight: 800; color: #23282b; line-height: 1.1; }
-#levelrow .lvl-label { font-size: 12px; font-weight: 600; color: #7a8480; margin-left: 2px; }
-#xpbar {
-  margin-top: 5px;
-  width: 120px;
-  height: 8px;
-  background: #e3e8e3;
-  border-radius: 4px;
-  overflow: hidden;
+.iconbtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.12s;
+  text-decoration: none;
 }
-#xpfill { height: 100%; width: 0%; background: linear-gradient(90deg, #8be07b, #4fc66b); border-radius: 4px; transition: width 0.15s; }
-#killrow { margin-top: 4px; font-size: 11px; color: #7a8480; }
+.iconbtn:hover { background: rgba(30, 52, 34, 0.9); }
+.iconbtn svg { width: 20px; height: 20px; fill: #fff; }
+.iconbtn.off svg { opacity: 0.35; }
 
-#topright {
-  position: absolute;
+/* 玩家列表 */
+#playerlist {
+  position: fixed;
+  top: 62px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 20;
+}
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 5px;
+  border-radius: 999px;
+  width: fit-content;
+}
+.prow.self { border-color: rgba(120, 230, 140, 0.55); }
+.prow canvas { border-radius: 50%; }
+.pmeta { display: flex; flex-direction: column; line-height: 1.15; }
+.pname { font-size: 12.5px; font-weight: 700; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plvl { font-size: 10.5px; color: rgba(255,255,255,0.6); }
+
+/* 任务框 + 小地图 */
+#questbox {
+  position: fixed;
   top: 14px;
   right: 14px;
-  padding: 8px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  z-index: 20;
+  min-width: 168px;
+}
+#questbox b { font-size: 14px; display: block; }
+#questbox span { font-size: 11px; color: rgba(255,255,255,0.62); }
+#mapwrap {
+  position: fixed;
+  top: 78px;
+  right: 14px;
+  z-index: 20;
   text-align: center;
 }
 #minimap { display: block; border-radius: 50%; }
-#latency { font-size: 11px; color: #7a8480; margin-top: 4px; }
+#zonename {
+  margin: 5px auto 0;
+  width: fit-content;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
 
-#bottombar {
-  position: absolute;
+/* 花瓣栏 */
+#petalbar {
+  position: fixed;
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  z-index: 20;
 }
-#slots { display: flex; gap: 6px; }
-.slot {
-  width: 52px;
-  height: 52px;
+#equiprow { display: flex; gap: 6px; }
+#invrow { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; max-width: min(560px, 92vw); }
+
+.eslot {
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), inset 0 0 0 2px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
   pointer-events: auto;
   cursor: pointer;
   transition: transform 0.08s;
 }
-.slot:hover { transform: translateY(-2px); }
-.slot.locked { opacity: 0.32; }
-.slot .keyhint {
-  position: absolute;
-  top: 2px;
-  left: 5px;
-  font-size: 9px;
-  color: #9aa3a0;
-  font-weight: 700;
+.eslot:hover { transform: translateY(-2px); }
+.eslot.locked { opacity: 0.3; }
+.eslot .cdoverlay { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.eslot .dur {
+  position: absolute; left: 4px; right: 4px; bottom: 3px; height: 3px;
+  background: rgba(0,0,0,0.35); border-radius: 2px; overflow: hidden;
 }
-.slot .cdoverlay {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-.slot .durability {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 3px;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.18);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.slot .durability > div { height: 100%; background: #58cc70; }
+.eslot .dur > div { height: 100%; background: #7ee07e; }
 
-#actionrow { display: flex; gap: 8px; }
-
-.gbtn {
-  pointer-events: auto;
-  border: none;
+.islot {
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  background: rgba(255, 255, 255, 0.92);
-  color: #23282b;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-  cursor: pointer;
-  transition: transform 0.08s, background 0.12s;
-}
-.gbtn:hover { transform: translateY(-1px); background: #fff; }
-.gbtn:active { transform: translateY(0); }
-.gbtn.primary { background: #58cc70; color: #fff; }
-.gbtn.primary:hover { background: #6fd984; }
-.gbtn.primary:disabled { background: #b9c4bb; cursor: not-allowed; transform: none; }
-.gbtn.big { padding: 12px 34px; font-size: 17px; border-radius: 12px; }
-
-/* ---------- 背包 / 合成面板 ---------- */
-#invpanel, #craftpanel {
-  position: fixed;
-  right: 14px;
-  bottom: 92px;
-  z-index: 20;
-  padding: 12px;
+  position: relative;
   pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.08s;
 }
-#invpanel { width: 322px; }
-.ptitle { font-size: 15px; font-weight: 800; margin-bottom: 8px; display: flex; justify-content: space-between; }
-.pcount { font-size: 12px; color: #7a8480; font-weight: 600; }
-#invcanvas { display: block; border-radius: 10px; background: #f2f5f2; cursor: grab; }
-.phint { font-size: 11px; color: #8a938f; margin-top: 8px; line-height: 1.5; }
+.islot:hover { transform: translateY(-2px); }
+.islot .hk {
+  position: absolute; right: 2px; bottom: 0;
+  font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.85);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.islot .cnt {
+  position: absolute; left: 3px; top: 1px;
+  font-size: 9.5px; font-weight: 800; color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
 
-#craftpanel { width: 300px; }
-.crow { margin-bottom: 10px; }
-#craftselect {
+/* 聊天 */
+#chatwrap {
+  position: fixed;
+  bottom: 12px;
+  left: 14px;
+  width: 264px;
+  z-index: 20;
+}
+#chatlog {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 92px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.chatline {
+  width: fit-content;
+  max-width: 100%;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 9px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.chatline b { color: #9fe3a8; margin-right: 4px; }
+.chatline.sys { color: rgba(255,255,255,0.55); font-style: italic; }
+#chatinput {
   width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #d4dad5;
-  font-size: 13px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12.5px;
   font-family: inherit;
-  background: #fff;
-  color: #23282b;
+  color: #fff;
+  pointer-events: auto;
+  outline: none;
 }
-#craftinfo { font-size: 12px; color: #5c6660; line-height: 1.6; min-height: 20px; }
-#craftpreview { display: block; background: #f2f5f2; border-radius: 8px; }
-#craftgo { width: 100%; }
+#chatinput::placeholder { color: rgba(255,255,255,0.45); }
+#chatinput:focus { border-color: rgba(120, 230, 140, 0.6); }
 
-/* ---------- Toast ---------- */
+/* Toast */
 #toasts {
-  position: absolute;
-  top: 84px;
+  position: fixed;
+  top: 72px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  z-index: 85;
 }
 .toast {
-  background: rgba(35, 40, 43, 0.82);
-  color: #fff;
   font-size: 13px;
-  font-weight: 600;
-  padding: 6px 14px;
+  font-weight: 700;
+  padding: 6px 15px;
   border-radius: 999px;
   animation: toastin 0.18s ease-out;
   white-space: nowrap;
@@ -191,68 +261,172 @@ html, body {
 .toast.fade { opacity: 0; transition: opacity 0.4s; }
 @keyframes toastin { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* ---------- 开始 / 死亡界面 ---------- */
-#startscreen {
+/* ============ 弹窗(合成/死亡) ============ */
+#craftmodal, #deathscreen {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 60;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 35%, #3f7a3a, #1c2b1a 75%);
-}
-.startbox { width: 400px; max-width: calc(100vw - 40px); padding: 28px 30px; text-align: center; }
-.logo { display: flex; justify-content: center; margin-bottom: 6px; }
-.startbox h1 { margin: 4px 0 2px; font-size: 44px; letter-spacing: 2px; color: #2c3a2c; }
-.tagline { margin: 0 0 20px; font-size: 13px; color: #6d7a6d; }
-.field { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; text-align: left; }
-.field label { width: 76px; font-size: 13px; font-weight: 700; color: #4c5750; flex-shrink: 0; }
-.field input {
-  flex: 1;
-  padding: 9px 12px;
-  border-radius: 9px;
-  border: 1px solid #d4dad5;
-  font-size: 14px;
-  font-family: inherit;
-  background: #fff;
-  color: #23282b;
-  min-width: 0;
-}
-.field input:focus { outline: 2px solid #8be07b; border-color: transparent; }
-#playbtn { margin-top: 6px; }
-.help {
-  margin-top: 18px;
-  font-size: 11.5px;
-  color: #7a8480;
-  line-height: 1.8;
-  text-align: left;
-  background: #f2f5f2;
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-.startfoot { margin-top: 14px; font-size: 11px; color: #9aa3a0; }
-.startfoot a { color: #6d9a6d; }
-
-#deathscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(20, 10, 10, 0.45);
+  background: rgba(8, 16, 10, 0.55);
   backdrop-filter: blur(2px);
 }
-.deathbox { width: 340px; padding: 26px; text-align: center; }
-.deathbox h2 { margin: 0 0 8px; font-size: 30px; color: #c0392b; }
-.dstat { font-size: 14px; color: #4c5750; margin-bottom: 10px; }
-.dhint { font-size: 12px; color: #8a938f; line-height: 1.6; margin-bottom: 18px; }
+.modalbox {
+  width: 330px;
+  max-width: calc(100vw - 40px);
+  border-radius: 16px;
+  padding: 18px;
+  pointer-events: auto;
+}
+.mtitle { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
+.msub { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.55); margin-left: 6px; }
+.crow { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+#craftselect {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+}
+#craftselect option { color: #fff; background: #1a2e1e; }
+#craftinfo { font-size: 12.5px; color: rgba(255,255,255,0.78); line-height: 1.7; min-height: 22px; display: block; }
+#craftinfo b { color: #9fe3a8; }
+#craftpreview { display: block; background: rgba(0,0,0,0.28); border-radius: 9px; }
 
-/* ---------- 拖拽幽灵 ---------- */
+.deathbox { text-align: center; width: 330px; }
+.deadflower { width: 56px; height: 56px; margin-bottom: 4px; }
+.deathbox h2 { margin: 2px 0 8px; font-size: 28px; }
+.dstat { font-size: 14px; color: rgba(255,255,255,0.85); margin-bottom: 10px; }
+.dstat b { color: #9fe3a8; }
+.dhint { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.6; margin-bottom: 18px; }
+
+/* ============ 主菜单 ============ */
+#menuscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+}
+#menubg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#menucenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  z-index: 2;
+}
+#logo {
+  font-size: 66px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #173d22;
+  text-shadow: 0 2px 0 rgba(255,255,255,0.25);
+  margin-bottom: 4px;
+}
+#nameinput {
+  width: 240px;
+  text-align: center;
+  background: rgba(14, 26, 16, 0.82);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 15px;
+  font-family: inherit;
+  color: #fff;
+  outline: none;
+}
+#nameinput::placeholder { color: rgba(255,255,255,0.45); }
+#nameinput:focus { border-color: rgba(120, 230, 140, 0.65); }
+#maprow { display: flex; gap: 8px; margin-top: 6px; }
+#serverinput {
+  width: 240px;
+  text-align: center;
+  background: rgba(14, 26, 16, 0.55);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  color: rgba(255,255,255,0.85);
+  outline: none;
+  margin-top: 2px;
+}
+#serverinput::placeholder { color: rgba(255,255,255,0.4); }
+#serverinput:focus { border-color: rgba(120, 230, 140, 0.5); }
+.mapbtn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 17px;
+  font-size: 13.5px;
+  font-weight: 800;
+  font-family: inherit;
+  color: #fff;
+  cursor: pointer;
+  position: relative;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  transition: transform 0.08s, filter 0.12s;
+}
+.mapbtn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.12); }
+.mapbtn:disabled { filter: grayscale(0.65) brightness(0.8); cursor: not-allowed; opacity: 0.75; }
+.mapbtn i {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(14,26,16,0.9);
+  border-radius: 999px;
+  padding: 1px 6px;
+  letter-spacing: 0.5px;
+}
+.mapbtn.garden { background: #b08963; }
+.mapbtn.desert { background: #d8b978; }
+.mapbtn.ocean { background: #4d7fd0; }
+.mapbtn.jungle { background: #3f9d54; }
+.mapbtn.hell { background: #a03328; }
+#menuhint { font-size: 11.5px; color: rgba(255,255,255,0.78); margin-top: 16px; }
+#menuhint a { color: #d8f0d8; text-decoration: underline; }
+#copyright {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  z-index: 2;
+}
+
+/* ============ 加载屏 ============ */
+#loadingscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #0e1a10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+#loadlogo { font-size: 58px; font-weight: 900; letter-spacing: 4px; color: #fff; }
+#loadtext { font-size: 14px; color: rgba(255,255,255,0.65); }
+.dots i { font-style: normal; animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: 0.2s; }
+.dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+
+/* ============ 拖拽幽灵 ============ */
 #dragghost {
   position: fixed;
-  z-index: 100;
+  z-index: 90;
   pointer-events: none;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
   transform: translate(-50%, -50%) scale(1.15);
 }

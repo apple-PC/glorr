@@ -47,6 +47,11 @@ export interface SelfState {
 
 export type EvKind = 'levelup' | 'death' | 'respawn' | 'craft_ok' | 'craft_fail' | 'pickup' | 'break';
 
+export interface OtherInfo {
+  level: number;
+  loadout: [string, number][];
+}
+
 export class Net {
   ws: WebSocket | null = null;
   connected = false;
@@ -54,6 +59,7 @@ export class Net {
   self: SelfState | null = null;
   ents = new Map<number, EntState>();
   othersLoadout = new Map<number, [string, number][]>();
+  othersInfo = new Map<number, OtherInfo>();
   latency = 0;
 
   onWelcome: (() => void) | null = null;
@@ -61,6 +67,7 @@ export class Net {
   onEv: ((k: EvKind, v?: number) => void) | null = null;
   onEntGone: ((e: EntState) => void) | null = null;
   onClose: (() => void) | null = null;
+  onChat: ((from: string, text: string) => void) | null = null;
 
   private pingTimer = 0;
 
@@ -129,9 +136,13 @@ export class Net {
         this.onYou?.(this.self);
         break;
       case 'lo':
-        for (const [pid, loadout] of msg.ps) {
+        for (const [pid, level, loadout] of msg.ps) {
           this.othersLoadout.set(pid, loadout);
+          this.othersInfo.set(pid, { level, loadout });
         }
+        break;
+      case 'chat':
+        this.onChat?.(msg.from, msg.text);
         break;
       case 'ev':
         this.onEv?.(msg.k as EvKind, msg.v);

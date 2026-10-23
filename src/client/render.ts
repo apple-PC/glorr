@@ -24,7 +24,7 @@ export interface FloatText {
   color: string;
 }
 
-const RING_TINTS = ['#c9e3a3', '#b9db92', '#aad285', '#9cc978', '#8ec06c', '#82b762', '#76ad58', '#6ba34f', '#619945'];
+const RING_TINTS = ['#66bd72', '#5fb76c', '#59b167', '#53aa61', '#4da45c', '#479e56', '#419851', '#3b924b', '#358c46'];
 
 export class Renderer {
   private mobAngles = new Map<number, number>();
@@ -116,7 +116,7 @@ export class Renderer {
 
     // 安全区边界
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 3;
     ctx.setLineDash([14, 10]);
     ctx.beginPath();
@@ -124,27 +124,13 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
-    // 网格
-    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
-    ctx.lineWidth = 1.5;
-    const grid = 200;
-    ctx.beginPath();
-    for (let gx = Math.floor(x0 / grid) * grid; gx <= x1; gx += grid) {
-      ctx.moveTo(gx, y0);
-      ctx.lineTo(gx, y1);
-    }
-    for (let gy = Math.floor(y0 / grid) * grid; gy <= y1; gy += grid) {
-      ctx.moveTo(x0, gy);
-      ctx.lineTo(x1, gy);
-    }
-    ctx.stroke();
-
-    // 装饰:草丛与野花(按格子确定性生成)
+    // 背景装饰:深色三角形(florr 花园风格,按格子确定性生成)
     const cell = 170;
     const cx0 = Math.floor(x0 / cell);
     const cx1 = Math.floor(x1 / cell);
     const cy0 = Math.floor(y0 / cell);
     const cy1 = Math.floor(y1 / cell);
+    ctx.fillStyle = 'rgba(20,80,35,0.10)';
     for (let gx = cx0; gx <= cx1; gx++) {
       for (let gy = cy0; gy <= cy1; gy++) {
         const n = 2 + Math.floor(hash2(gx, gy) * 3);
@@ -152,28 +138,18 @@ export class Renderer {
           const px = gx * cell + hash2(gx * 3 + i, gy) * cell;
           const py = gy * cell + hash2(gx, gy * 3 + i) * cell;
           if (Math.hypot(px, py) > WORLD.radius - 10) continue;
-          const kind = hash2(px | 0, py | 0);
-          ctx.strokeStyle = 'rgba(60,110,50,0.5)';
-          ctx.lineWidth = 2;
+          const s = 16 + hash2(px | 0, py | 0) * 22;
+          const rot = hash2(gx + i, gy - i) * TAU;
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(rot);
           ctx.beginPath();
-          if (kind < 0.75) {
-            // 草叶
-            ctx.moveTo(px, py);
-            ctx.quadraticCurveTo(px + 5, py - 9, px + 10, py - 13);
-            ctx.moveTo(px, py);
-            ctx.quadraticCurveTo(px - 5, py - 8, px - 9, py - 12);
-          } else {
-            // 野花
-            ctx.moveTo(px, py);
-            ctx.lineTo(px, py - 10);
-            ctx.stroke();
-            ctx.fillStyle = kind < 0.87 ? 'rgba(255,255,255,0.85)' : 'rgba(255,214,102,0.9)';
-            ctx.beginPath();
-            ctx.arc(px, py - 12, 3.2, 0, TAU);
-            ctx.fill();
-            continue;
-          }
-          ctx.stroke();
+          ctx.moveTo(0, -s);
+          ctx.lineTo(s * 0.87, s * 0.5);
+          ctx.lineTo(-s * 0.87, s * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
       }
     }
