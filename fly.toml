@@ -1,0 +1,21 @@
+# Fly.io 一键部署(WebSocket 友好,需先 fly auth login)
+# 部署后把 src/shared/servers.ts 的三个 url 改成 https://<app>.fly.dev/?room=xxx
+app = "glorr-server"
+primary_region = "hkg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

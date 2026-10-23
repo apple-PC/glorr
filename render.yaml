@@ -1,0 +1,14 @@
+# Render 一键部署(WebSocket 友好,免费档会休眠,冷启动约 50s)
+# 部署后把 src/shared/servers.ts 的三个 url 改成 https://<你的服务名>.onrender.com/?room=xxx
+services:
+  - type: web
+    name: glorr
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build:client
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

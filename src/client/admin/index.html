@@ -17,6 +17,16 @@
       <input id="admin-pass" type="password" placeholder="密码" autocomplete="current-password" />
       <div id="admin-msg" class="msg"></div>
       <button id="admin-login">登录</button>
+      <div class="regrow"><a href="#" id="show-register">没有账号?注册(首个账号自动成为管理员)</a></div>
+    </div>
+    <div class="loginbox hidden" id="registerbox">
+      <h1>注册账号</h1>
+      <p class="sub">名称 2-12 位,注册后不可修改</p>
+      <input id="reg-name" maxlength="12" placeholder="名称(注册后不可修改)" autocomplete="username" />
+      <input id="reg-pass" type="password" placeholder="密码(至少 4 位)" autocomplete="new-password" />
+      <div id="reg-msg" class="msg"></div>
+      <button id="reg-go">注册并返回登录</button>
+      <div class="regrow"><a href="#" id="show-login">返回登录</a></div>
     </div>
   </div>
 

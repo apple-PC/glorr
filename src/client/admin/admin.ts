@@ -102,6 +102,58 @@ for (const id of ['admin-name', 'admin-pass']) {
     if ((e as KeyboardEvent).key === 'Enter') void login();
   });
 }
+
+// ---------- 注册(HTTP,首个账号自动成为管理员) ----------
+
+function showRegister(show: boolean): void {
+  document.querySelector('.loginbox:not(#registerbox)')!.classList.toggle('hidden', show);
+  $('registerbox').classList.toggle('hidden', !show);
+  $('reg-msg').textContent = '';
+}
+
+$('show-register').addEventListener('click', (e) => {
+  e.preventDefault();
+  showRegister(true);
+});
+$('show-login').addEventListener('click', (e) => {
+  e.preventDefault();
+  showRegister(false);
+});
+
+async function register(): Promise<void> {
+  const name = ($('reg-name') as HTMLInputElement).value.trim();
+  const password = ($('reg-pass') as HTMLInputElement).value;
+  const msg = $('reg-msg');
+  msg.textContent = '';
+  try {
+    const res = await api('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, password }),
+    });
+    const data = (await res.json()) as { ok: boolean; error?: string; admin?: boolean };
+    if (!res.ok || !data.ok) {
+      msg.textContent = data.error ?? '注册失败';
+      return;
+    }
+    // 回填并自动登录
+    ($('admin-name') as HTMLInputElement).value = name;
+    ($('admin-pass') as HTMLInputElement).value = password;
+    showRegister(false);
+    msg.textContent = '';
+    $('admin-msg').textContent = data.admin ? '注册成功,已自动填充(首个账号即管理员)' : '注册成功,已自动填充';
+    void login();
+  } catch {
+    msg.textContent = '无法连接服务器';
+  }
+}
+
+$('reg-go').addEventListener('click', () => void register());
+for (const id of ['reg-name', 'reg-pass']) {
+  $(id).addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if ((e as KeyboardEvent).key === 'Enter') void register();
+  });
+}
 $('dash-logout').addEventListener('click', () => {
   localStorage.removeItem('glorr.admin.token');
   adminToken = '';

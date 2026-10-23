@@ -130,6 +130,38 @@ function readBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
 async function handleAdminApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const route = url.pathname;
 
+  // ---- HTTP 注册/登录(供非 WebSocket 环境使用:管理后台引导、第三方客户端) ----
+  if (route === '/api/auth/register' && req.method === 'POST') {
+    const body = await readBody(req);
+    const result = accounts.register(String(body.name ?? '').trim(), String(body.password ?? ''));
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.error });
+    const token = accounts.issueToken(result.account.name);
+    log(`HTTP 注册:${result.account.name}`);
+    return sendJson(res, 200, {
+      ok: true,
+      token,
+      name: result.account.name,
+      level: result.account.level,
+      kills: result.account.kills,
+      admin: result.account.admin,
+    });
+  }
+  if (route === '/api/auth/login' && req.method === 'POST') {
+    const body = await readBody(req);
+    const result = accounts.login(String(body.name ?? '').trim(), String(body.password ?? ''));
+    if (!result.ok) return sendJson(res, 401, { ok: false, error: result.error });
+    const token = accounts.issueToken(result.account.name);
+    log(`HTTP 登录:${result.account.name}`);
+    return sendJson(res, 200, {
+      ok: true,
+      token,
+      name: result.account.name,
+      level: result.account.level,
+      kills: result.account.kills,
+      admin: result.account.admin,
+    });
+  }
+
   // 登录(不需要 token)
   if (route === '/api/admin/login' && req.method === 'POST') {
     const body = await readBody(req);

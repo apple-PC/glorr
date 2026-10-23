@@ -92,6 +92,25 @@ ADMIN_PORT=8081 npm start          # 或启用独立端口,与游玩端完全分
 
 功能:维护模式开关(拒绝新连接)、房间列表与开关、全服广播、账号管理(搜索/封禁/解封/重置密码/改等级/授予撤销管理员/删除)、实时统计(在线/房间/账号/运行时间)与操作日志。管理员账号在管理后台登录(需账号具有管理员权限)。
 
+在无法使用 WebSocket 的环境(如上面的公网演示链接)里,游戏内注册通道不可用,可改用 HTTP 接口引导首个管理员:
+
+```bash
+curl -X POST https://<你的域名>/api/auth/register \
+  -H 'content-type: application/json' \
+  -d '{"name":"admin","password":"your-password"}'
+# 返回的 token 即登录态;首个注册账号自动成为管理员
+```
+
+## 在线体验
+
+| 链接 | 说明 |
+|---|---|
+| https://glorr-petal-game.app.workbuddy.host/?sharecode=TR4PI2EHIV | 公网演示(UI + 管理后台;**网关不支持 WebSocket,不能实时联机**) |
+| https://apple-Pc.github.io/glorr/ | GitHub Pages(静态客户端,同样需要可联机的服务器) |
+| 本机 `npm start` → http://localhost:8080 | **完整体验**(默认三个服务器指向本机三房间) |
+
+> 想公开可玩:把服务端部署到支持 WebSocket 的平台(见下),再把 `src/shared/servers.ts` 里三个 `url` 改成你的域名(如 `wss://glorr.example.com/?room=scarlet`),重新 `npm run build:pages` 推送即可。
+
 ## 部署
 
 ### GitHub Pages(客户端站点)
@@ -111,18 +130,31 @@ git add docs && git commit -m "chore: rebuild pages" && git push
 
 > 注意:Pages 只托管静态客户端,**联机需要单独的游戏服务端**。默认三个服务器指向 localhost,公网部署后请改 `src/shared/servers.ts`。
 
-### 游戏服务端(公网)
+### 游戏服务端(公网,可联机)
+
+**Render**(仓库根已带 `render.yaml`,New Blueprint 一键创建;免费档休眠约 50s 冷启动):
 
 ```bash
-# Docker Compose(推荐)
-docker compose up -d          # 监听 8080,HTTP + WebSocket 同端口
+# 或在 Render 面板用 render.yaml 创建;部署后:
+# https://<你的服务名>.onrender.com/?room=scarlet
+```
 
+**Fly.io**(仓库根已带 `fly.toml`):
+
+```bash
+fly auth login && fly launch --no-deploy && fly deploy
+```
+
+**任意 VPS / Docker Compose**(推荐,数据持久):
+
+```bash
+docker compose up -d          # 监听 8080,HTTP + WebSocket 同端口
 # 或直接运行
 npm ci --omit=dev && npm run build:client
 PORT=8080 npm start
 ```
 
-部署到 Render / Railway / Fly.io / 任意 VPS 均可(需支持 WebSocket,公网建议套 wss 反代)。
+部署到公网后需支持 WebSocket(建议 wss 反代);修改 `src/shared/servers.ts` 的三个 url 指向新域名即可全站生效。注意:免费沙箱类平台磁盘不持久,`data/accounts.json` 可能在重启/重新部署后重置,正式运营建议挂持久卷或改用 SQLite/外部数据库。
 
 ## 测试
 

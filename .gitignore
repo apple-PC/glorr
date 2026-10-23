@@ -8,3 +8,5 @@ npm-debug.log*
 .workbuddy/
 
 data/
+
+.wbapp_*.genie
