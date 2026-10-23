@@ -2,7 +2,10 @@
 
 // ---------- 客户端 → 服务端 ----------
 export type ClientMsg =
-  | { t: 'join'; name: string }
+  | { t: 'register'; name: string; password: string }
+  | { t: 'login'; name: string; password: string }
+  | { t: 'whoami'; token: string }             // 用 token 恢复会话(不进入游戏)
+  | { t: 'join'; token: string }               // 携带账号 token 进入游戏
   | { t: 'in'; x: number; y: number }          // 移动输入方向(世界系,已归一化)
   | { t: 'equip'; uid: number; slot: number }  // 背包花瓣 → 槽位(占用则交换)
   | { t: 'unequip'; slot: number }             // 槽位 → 背包
@@ -27,6 +30,8 @@ export type Ent =
   | ['w', number, number, number, number];
 
 export type ServerMsg =
+  | { t: 'auth_ok'; token: string; name: string; level: number; kills: number; admin: boolean }
+  | { t: 'auth_err'; reason: string }
   | { t: 'welcome'; id: number; tickHz: number; mapRadius: number; safeRadius: number; serverTime: number }
   | { t: 'snap'; tick: number; time: number; ents: Ent[]; gone: number[] }
   | {

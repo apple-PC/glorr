@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>glorr 管理后台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%2360a5fa'/><circle cx='16' cy='6' r='5' fill='%233b82f6'/><circle cx='16' cy='26' r='5' fill='%233b82f6'/><circle cx='6' cy='16' r='5' fill='%233b82f6'/><circle cx='26' cy='16' r='5' fill='%233b82f6'/></svg>" />
+  <link rel="stylesheet" href="./admin.css" />
+</head>
+<body>
+  <!-- 登录 -->
+  <div id="loginview">
+    <div class="loginbox">
+      <h1>glorr 控制台</h1>
+      <p class="sub">仅管理员账号可登录 · 与游玩端地址分离</p>
+      <input id="admin-name" maxlength="12" placeholder="管理员账号" autocomplete="username" />
+      <input id="admin-pass" type="password" placeholder="密码" autocomplete="current-password" />
+      <div id="admin-msg" class="msg"></div>
+      <button id="admin-login">登录</button>
+    </div>
+  </div>
+
+  <!-- 控制台 -->
+  <div id="dashview" class="hidden">
+    <header>
+      <span class="brand">glorr 控制台</span>
+      <span id="dash-who" class="who"></span>
+      <button id="dash-logout" class="ghost">退出</button>
+    </header>
+
+    <section class="cards">
+      <div class="card"><b id="st-online">0</b><span>在线玩家</span></div>
+      <div class="card"><b id="st-rooms">0</b><span>房间</span></div>
+      <div class="card"><b id="st-accounts">0</b><span>注册账号</span></div>
+      <div class="card"><b id="st-banned">0</b><span>封禁账号</span></div>
+      <div class="card"><b id="st-uptime">0s</b><span>运行时间</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>服务器控制</h2>
+      <div class="row">
+        <span>维护模式<small>开启后拒绝所有新连接</small></span>
+        <button id="btn-maintenance" class="toggle off">已关闭</button>
+      </div>
+      <table class="tbl" id="roomtable">
+        <thead><tr><th>房间</th><th>在线</th><th>怪物</th><th>掉落</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="row">
+        <input id="announce-input" maxlength="120" placeholder="全服广播内容(最多 120 字)" />
+        <button id="btn-announce" class="primary">广播</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>玩家账号管理</h2>
+      <div class="row">
+        <input id="acc-search" maxlength="24" placeholder="搜索名称(留空全部)" />
+        <button id="acc-refresh" class="primary">查询</button>
+      </div>
+      <div class="tablewrap">
+        <table class="tbl" id="acctable">
+          <thead><tr><th>名称</th><th>等级</th><th>击杀</th><th>花瓣</th><th>管理</th><th>状态</th><th>注册时间</th><th>最近在线</th><th>操作</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>操作日志</h2>
+      <ul id="loglist" class="logs"></ul>
+    </section>
+  </div>
+
+  <script type="module" src="./admin.ts"></script>
+</body>
+</html>

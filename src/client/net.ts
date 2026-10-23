@@ -68,10 +68,13 @@ export class Net {
   onEntGone: ((e: EntState) => void) | null = null;
   onClose: (() => void) | null = null;
   onChat: ((from: string, text: string) => void) | null = null;
+  onAuthOk: ((info: { token: string; name: string; level: number; kills: number; admin: boolean }) => void) | null = null;
+  onAuthErr: ((reason: string) => void) | null = null;
 
   private pingTimer = 0;
 
-  connect(url: string, name: string): Promise<void> {
+  /** 建立连接;token 为空则不发送 join(等待登录/注册) */
+  connect(url: string, token = ''): Promise<void> {
     return new Promise((resolve, reject) => {
       let ws: WebSocket;
       try {
@@ -82,12 +85,12 @@ export class Net {
       }
       this.ws = ws;
       const timeout = window.setTimeout(() => {
-        reject(new Error('连接超时,请检查服务器地址'));
+        reject(new Error('连接超时,请检查服务器'));
       }, 6000);
       ws.onopen = () => {
         this.connected = true;
-        this.send({ t: 'join', name });
-        this.onWelcome?.();
+        window.clearTimeout(timeout);
+        if (token) this.send({ t: 'join', token });
         resolve();
       };
       ws.onerror = () => {
@@ -109,8 +112,30 @@ export class Net {
     });
   }
 
+  register(name: string, password: string): void {
+    this.send({ t: 'register', name, password });
+  }
+
+  login(name: string, password: string): void {
+    this.send({ t: 'login', name, password });
+  }
+
+  whoami(token: string): void {
+    this.send({ t: 'whoami', token });
+  }
+
+  join(token: string): void {
+    this.send({ t: 'join', token });
+  }
+
   private apply(msg: ServerMsg): void {
     switch (msg.t) {
+      case 'auth_ok':
+        this.onAuthOk?.({ token: msg.token, name: msg.name, level: msg.level, kills: msg.kills, admin: msg.admin });
+        break;
+      case 'auth_err':
+        this.onAuthErr?.(msg.reason);
+        break;
       case 'welcome':
         this.selfId = msg.id;
         break;
@@ -217,6 +242,19 @@ export class Net {
     if (this.ws && this.ws.readyState === 1) {
       this.ws.send(JSON.stringify(msg));
     }
+  }
+
+  close(): void {
+    try {
+      this.ws?.close();
+    } catch {
+      /* ignore */
+    }
+    this.ws = null;
+    this.connected = false;
+    this.ents.clear();
+    this.self = null;
+    this.selfId = 0;
   }
 
   tick(dt: number): void {

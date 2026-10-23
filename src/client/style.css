@@ -422,6 +422,119 @@ html, body {
 .dots i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes blink { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
 
+/* ============ 账号屏 ============ */
+#accountscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  overflow: hidden;
+}
+#accountbg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.accountbox {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 2;
+}
+#acclogo {
+  font-size: 58px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #173d22;
+  text-shadow: 0 2px 0 rgba(255,255,255,0.25);
+}
+.acctabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(14,26,16,0.55);
+  border-radius: 999px;
+  padding: 4px;
+}
+.acctab {
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.65);
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  padding: 7px 26px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.acctab.active { background: #62c96e; color: #0e2a14; }
+#accountscreen input {
+  width: 250px;
+  text-align: center;
+  background: rgba(14,26,16,0.82);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: #fff;
+  outline: none;
+}
+#accountscreen input::placeholder { color: rgba(255,255,255,0.42); }
+#accountscreen input:focus { border-color: rgba(120,230,140,0.65); }
+.accmsg { font-size: 12.5px; color: #ffb4b4; min-height: 18px; font-weight: 600; }
+.acchint { font-size: 11.5px; color: rgba(255,255,255,0.7); margin-top: 10px; max-width: 300px; text-align: center; line-height: 1.7; }
+
+/* ============ 设置弹窗 ============ */
+.sgroup { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.5); margin: 4px 0 8px; letter-spacing: 1px; }
+#serverlist { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.srow-server {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  transition: border-color 0.12s, background 0.12s;
+}
+.srow-server:hover { background: rgba(0,0,0,0.4); }
+.srow-server.selected { border-color: #62c96e; background: rgba(98,201,110,0.14); }
+.srow-server .sname { font-size: 14px; font-weight: 800; }
+.srow-server .snote { font-size: 11px; color: rgba(255,255,255,0.55); flex: 1; }
+.srow-server .sstatus { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55); }
+.srow-server .sstatus.online { color: #7ee07e; }
+.srow-server .sstatus.offline { color: #e08080; }
+.scheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.scheck input { width: 16px; height: 16px; accent-color: #62c96e; }
+#adminlinkrow { margin-bottom: 12px; }
+#adminlink { display: inline-block; text-decoration: none; font-size: 12.5px; padding: 7px 14px; }
+
+/* 账号 chip(菜单) */
+#accountchip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(14,26,16,0.78);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+  padding: 4px 16px 4px 5px;
+}
+#accavatar { border-radius: 50%; }
+#chipname { font-size: 13.5px; }
+#chiplevel { font-size: 10.5px; }
+
 /* ============ 拖拽幽灵 ============ */
 #dragghost {
   position: fixed;

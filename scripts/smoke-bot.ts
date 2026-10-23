@@ -8,6 +8,7 @@ const DURATION = Number(process.env.SMOKE_SECS || 24);
 interface Stats {
   name: string;
   welcomed: boolean;
+  authed: boolean;
   youCount: number;
   snapCount: number;
   mobsSeen: Set<number>;
@@ -28,7 +29,7 @@ interface Stats {
   craftReplied: boolean;
 }
 
-function makeBot(name: string): Promise<Stats> {
+function makeBot(name: string, idx: number): Promise<Stats> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(URL);
     const st: Stats = {
@@ -52,12 +53,14 @@ function makeBot(name: string): Promise<Stats> {
       lastY: 0,
       latencyPongs: 0,
       craftReplied: false,
+      authed: false,
     };
     let selfX = 0;
     let selfY = 0;
     let nearestMob: { x: number; y: number } | null = null;
     let craftTested = false;
     const startedAt = Date.now();
+    let token = '';
 
     const timeout = setTimeout(() => {
       try { ws.close(); } catch { /* ignore */ }
@@ -65,7 +68,10 @@ function makeBot(name: string): Promise<Stats> {
     }, DURATION * 1000);
 
     ws.on('open', () => {
-      ws.send(JSON.stringify({ t: 'join', name }));
+      // 注册一个新账号(短名 + 序号保证唯一且合规)
+      const accName = `bt${String(Date.now() % 100000)}${idx}`;
+      ws.send(JSON.stringify({ t: 'register', name: accName, password: 'test1234' }));
+      st.name = accName;
     });
     ws.on('error', (err) => {
       clearTimeout(timeout);
@@ -79,6 +85,15 @@ function makeBot(name: string): Promise<Stats> {
         return;
       }
       switch (msg.t) {
+        case 'auth_ok':
+          st.authed = true;
+          token = String(msg.token ?? '');
+          // 注册/登录成功后进入游戏
+          ws.send(JSON.stringify({ t: 'join', token }));
+          break;
+        case 'auth_err':
+          st.evs.push(`auth_err:${String(msg.reason ?? '')}`);
+          break;
         case 'welcome':
           st.welcomed = true;
           break;
@@ -113,7 +128,7 @@ function makeBot(name: string): Promise<Stats> {
               st.dropsSeen.add(e[1]);
             } else if (e[0] === 'p' && typeof e[6] === 'string') {
               st.playersSeen.add(e[1]);
-              if (e[6] === name) {
+              if (e[6] === st.name) {
                 selfX = e[2];
                 selfY = e[3];
                 if (st.lastX !== 0 || st.lastY !== 0) {
@@ -182,11 +197,12 @@ function check(label: string, ok: boolean, detail = ''): boolean {
 
 async function main(): Promise<void> {
   console.log(`[smoke] 目标 ${URL},时长 ${DURATION}s,启动 2 个机器人`);
-  const results = await Promise.all([makeBot('bot-甲'), makeBot('bot-乙')]);
+  const results = await Promise.all([makeBot('bot-甲', 1), makeBot('bot-乙', 2)]);
   let allOk = true;
 
   for (const st of results) {
     console.log(`\n[${st.name}] 快照 ${st.snapCount} | you ${st.youCount} | 见怪 ${st.mobsSeen.size} | 见掉落 ${st.dropsSeen.size} | 见玩家 ${st.playersSeen.size} | 弹丸 ${st.bulletsSeen} | Lv.${st.level} xp ${st.xp} 击杀 ${st.kills} 背包 ${st.invLen} 槽位 ${st.slots} 移动 ${st.moved.toFixed(0)} 事件 [${st.evs.join(',')}]`);
+    allOk = check(`${st.name}: 注册/登录鉴权`, st.authed) && allOk;
     allOk = check(`${st.name}: welcome`, st.welcomed) && allOk;
     allOk = check(`${st.name}: you 状态流`, st.youCount > 10, `${st.youCount} 次`) && allOk;
     allOk = check(`${st.name}: 快照流`, st.snapCount > DURATION * 15, `${st.snapCount} 帧`) && allOk;

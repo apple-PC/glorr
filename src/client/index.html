@@ -13,11 +13,13 @@
 
   <!-- ============ 游玩 HUD ============ -->
   <div id="hud" class="hidden">
-    <!-- 左上图标栏 -->
     <div id="iconrow">
       <a class="iconbtn" id="ghbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
+      <button class="iconbtn" id="hudsettingsbtn" title="设置(服务器切换)">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L3.16 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
       <button class="iconbtn" id="craftbtn" title="合成(5 合 1)">
         <svg viewBox="0 0 24 24"><path d="M14.7 7.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a1 1 0 0 0 0-1.4l-1.6-1.6a1 1 0 0 0-1.4 0L14.7 7.3zm-1.4 2.83-8.6 8.6a1 1 0 0 0 0 1.42l1.4 1.4a1 1 0 0 0 1.42 0l8.6-8.59-1.82-2.83zM3 21l2.6-.63 3.03-3.03-1.42-1.42L4.2 19 3 21z"/></svg>
       </button>
@@ -26,23 +28,19 @@
       </button>
     </div>
 
-    <!-- 左上玩家列表 -->
     <div id="playerlist"></div>
 
-    <!-- 右上任务 + 小地图 -->
     <div id="questbox"><b>深入险境</b><span>送一朵花去 C9 最深处</span></div>
     <div id="mapwrap">
       <canvas id="minimap" width="148" height="148"></canvas>
       <div id="zonename">花园</div>
     </div>
 
-    <!-- 底部花瓣栏:上排已装备,下排背包(带热键) -->
     <div id="petalbar">
       <div id="equiprow"></div>
       <div id="invrow"></div>
     </div>
 
-    <!-- 左下聊天 -->
     <div id="chatwrap">
       <div id="chatlog"></div>
       <input id="chatinput" maxlength="80" placeholder="(按 ENTER) 或点击此处聊天" />
@@ -65,6 +63,23 @@
     </div>
   </div>
 
+  <!-- ============ 设置弹窗 ============ -->
+  <div id="settingsmodal" class="hidden">
+    <div class="modalbox">
+      <div class="mtitle">设置</div>
+      <div class="sgroup">服务器</div>
+      <div id="serverlist"></div>
+      <div class="sgroup">音效</div>
+      <label class="scheck"><input type="checkbox" id="soundtoggle" checked /> 开启音效</label>
+      <div id="adminlinkrow" class="hidden">
+        <a id="adminlink" href="/admin" target="_blank" rel="noopener" class="ghostbtn">打开管理后台</a>
+      </div>
+      <div class="crow">
+        <button id="settingsclose" class="ghostbtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ 死亡界面 ============ -->
   <div id="deathscreen" class="hidden">
     <div class="modalbox deathbox">
@@ -76,6 +91,23 @@
     </div>
   </div>
 
+  <!-- ============ 账号(登录/注册) ============ -->
+  <div id="accountscreen" class="hidden">
+    <canvas id="accountbg"></canvas>
+    <div class="accountbox">
+      <div id="acclogo">glorr</div>
+      <div class="acctabs">
+        <button id="tab-login" class="acctab active">登录</button>
+        <button id="tab-register" class="acctab">注册</button>
+      </div>
+      <input id="acc-name" maxlength="12" placeholder="名称(注册后不可修改)" autocomplete="username" />
+      <input id="acc-pass" type="password" placeholder="密码(至少 4 位)" autocomplete="current-password" />
+      <div id="acc-msg" class="accmsg"></div>
+      <button id="acc-go" class="greenbtn big">登录</button>
+      <div class="acchint">名称只在创建账号时设置;等级与花瓣保存在服务器,换设备登录即继承</div>
+    </div>
+  </div>
+
   <!-- ============ 主菜单 ============ -->
   <div id="menuscreen" class="hidden">
     <canvas id="menubg"></canvas>
@@ -83,13 +115,19 @@
       <a class="iconbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
+      <button class="iconbtn" id="menusettingsbtn" title="设置(服务器切换)">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L3.16 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
       <button class="iconbtn" id="menusoundbtn" title="音效开关">
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>
       </button>
     </div>
     <div id="menucenter">
       <div id="logo">glorr</div>
-      <input id="nameinput" maxlength="12" placeholder="昵称" />
+      <div id="accountchip" class="hidden">
+        <canvas id="accavatar" width="34" height="34"></canvas>
+        <div class="pmeta"><span class="pname" id="chipname">—</span><span class="plvl" id="chiplevel">—</span></div>
+      </div>
       <button id="readybtn" class="greenbtn big">准备就绪 ▶</button>
       <div id="maprow">
         <button class="mapbtn garden" id="map-garden">花园</button>
@@ -98,7 +136,6 @@
         <button class="mapbtn jungle" disabled>丛林<i>soon</i></button>
         <button class="mapbtn hell" disabled>深渊<i>soon</i></button>
       </div>
-      <input id="serverinput" placeholder="服务器地址 ws://localhost:8080" />
       <div id="menuhint">受 florr.io 启发的社区作品 · 资产原创 · <a href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener">GitHub</a></div>
     </div>
     <div id="copyright">© 2026 glorr community</div>

@@ -1,8 +1,9 @@
-// glorr 客户端入口:加载屏 → 主菜单 → 选图游玩
+// glorr 客户端入口:加载屏 → 账号(登录/注册)→ 主菜单 → 选图游玩
 import { MAX_SLOTS, PLAYER, WORLD, rarityName } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, rotationSpeed } from '@shared/data/petals';
 import { TAU } from '@shared/math';
+import { DEFAULT_SERVER_ID, SERVERS, getServer } from '@shared/servers';
 import { Camera } from '@client/camera';
 import { Input } from '@client/input';
 import { Net } from '@client/net';
@@ -23,20 +24,17 @@ const camera = new Camera(window.innerWidth, window.innerHeight);
 const input = new Input(canvas);
 const renderer = new Renderer(canvas);
 const menuBg = new MenuBg(document.getElementById('menubg') as HTMLCanvasElement);
+const accountBg = new MenuBg(document.getElementById('accountbg') as HTMLCanvasElement);
 
-const ui = new Ui(net, {
-  onEquip: (uid, slot) => net.send({ t: 'equip', uid, slot }),
-  onUnequip: (slot) => net.send({ t: 'unequip', slot }),
-  onDrop: (uid) => net.send({ t: 'drop', uid }),
-  onCraft: (id, rarity) => net.send({ t: 'craft', id, rarity }),
-  onRespawn: () => net.send({ t: 'respawn' }),
-  onToggleSound: () => {
-    sfx.enabled = !sfx.enabled;
-    ui.setSoundLabel(sfx.enabled);
-    if (sfx.enabled) sfx.ensure();
-  },
-  onSendChat: (text) => net.send({ t: 'chat', text }),
-});
+// ---------- 会话状态 ----------
+
+let currentServerId = DEFAULT_SERVER_ID;
+let token = '';
+let switching = false;
+let account = { name: '', level: 1, kills: 0, admin: false };
+let inMenu = false;
+
+const tokenKey = (id: string) => `glorr.token.${id}`;
 
 // 本地预测状态(服务端权威,客户端只做表现)
 const self = {
@@ -57,7 +55,30 @@ let minimapAcc = 0;
 let listAcc = 0;
 let lastHitSfx = 0;
 
-// ---------- 收藏持久化(主菜单飘浮花瓣) ----------
+const ui = new Ui(net, {
+  onEquip: (uid, slot) => net.send({ t: 'equip', uid, slot }),
+  onUnequip: (slot) => net.send({ t: 'unequip', slot }),
+  onDrop: (uid) => net.send({ t: 'drop', uid }),
+  onCraft: (id, rarity) => net.send({ t: 'craft', id, rarity }),
+  onRespawn: () => net.send({ t: 'respawn' }),
+  onToggleSound: () => {
+    sfx.enabled = !sfx.enabled;
+    ui.setSoundLabel(sfx.enabled);
+    if (sfx.enabled) sfx.ensure();
+  },
+  onSendChat: (text) => net.send({ t: 'chat', text }),
+  onLogin: (name, password) => {
+    ui.accountMsg('');
+    net.login(name, password);
+  },
+  onRegister: (name, password) => {
+    ui.accountMsg('');
+    net.register(name, password);
+  },
+  onSelectServer: (id) => void switchServer(id),
+});
+
+// ---------- 收藏持久化(菜单飘浮花瓣) ----------
 
 const SHOWCASE: { id: string; rarity: number }[] = [
   { id: 'basic', rarity: 0 },
@@ -100,90 +121,32 @@ function saveCollection(inv: { id: string; rarity: number }[]): void {
   menuBg.setPetals(arr);
 }
 
-// ---------- 服务器地址 ----------
-
-function defaultServer(): string {
-  const params = new URLSearchParams(location.search);
-  const fromUrl = params.get('server');
-  if (fromUrl) return fromUrl;
-  const saved = localStorage.getItem('glorr.server');
-  if (saved) return saved;
-  // 由本机 Node 服务端托管页面时默认同源
-  if (location.protocol === 'http:' && ['', '80', '8080'].includes(location.port)) {
-    return `ws://${location.host}`;
-  }
-  return '';
-}
-
-// ---------- 界面流程 ----------
-
-const nameInput = document.getElementById('nameinput') as HTMLInputElement;
-const serverInput = document.getElementById('serverinput') as HTMLInputElement;
-const readyBtn = document.getElementById('readybtn') as HTMLButtonElement;
-const gardenBtn = document.getElementById('map-garden') as HTMLButtonElement;
-const menuScreen = document.getElementById('menuscreen')!;
-
-nameInput.value = localStorage.getItem('glorr.name') || '';
-serverInput.value = defaultServer();
-
-// 加载屏 → 主菜单
-window.setTimeout(() => {
-  ui.hideLoading();
-  ui.showMenu();
-  menuBg.setPetals(loadCollection());
-  menuBg.start();
-}, 900);
-
-window.addEventListener('resize', () => menuBg.resize());
-
-function onReady(): void {
-  const name = nameInput.value.trim() || '花朵';
-  localStorage.setItem('glorr.name', name);
-  readyBtn.disabled = true;
-  readyBtn.textContent = '已就绪 ✓';
-  gardenBtn.classList.add('pulse');
-  ui.toast('选择地图开始游戏');
-}
-
-readyBtn.addEventListener('click', onReady);
-nameInput.addEventListener('keydown', (e) => {
-  e.stopPropagation();
-  if (e.key === 'Enter') onReady();
-});
-
-gardenBtn.addEventListener('click', () => {
-  if (readyBtn.disabled) void play();
-  else ui.toast('先点击「准备就绪」');
-});
-
-async function play(): Promise<void> {
-  const name = nameInput.value.trim() || '花朵';
-  const server = serverInput.value.trim();
-  if (!server) {
-    ui.toast('请填写服务器地址(本地默认 ws://localhost:8080)');
-    serverInput.focus();
-    return;
-  }
-  localStorage.setItem('glorr.server', server);
-  sfx.ensure();
-  gardenBtn.disabled = true;
-  gardenBtn.textContent = '连接中…';
-  try {
-    await net.connect(server, name);
-  } catch (err) {
-    ui.toast(err instanceof Error ? err.message : String(err));
-    gardenBtn.disabled = false;
-    gardenBtn.textContent = '花园';
-    return;
-  }
-  gardenBtn.disabled = false;
-  gardenBtn.textContent = '花园';
-  ui.hideMenu();
-  menuBg.stop();
-  running = true;
-}
-
 // ---------- 网络事件 ----------
+
+net.onAuthOk = (info) => {
+  account = { name: info.name, level: info.level, kills: info.kills, admin: info.admin };
+  token = info.token;
+  localStorage.setItem(tokenKey(currentServerId), info.token);
+  ui.showAdminLink(info.admin);
+  if (!inMenu) enterMenu();
+};
+
+net.onAuthErr = (reason) => {
+  localStorage.removeItem(tokenKey(currentServerId));
+  if (switching) {
+    switching = false;
+    ui.hideSettings();
+    ui.showAccount();
+    accountBg.setPetals(loadCollection());
+    accountBg.start();
+    return;
+  }
+  if (inMenu) {
+    ui.toast(reason);
+    return;
+  }
+  ui.accountMsg(reason);
+};
 
 net.onYou = (s) => {
   const prev = net.self;
@@ -264,19 +227,155 @@ net.onEntGone = (e) => {
 net.onChat = (from, text) => ui.addChat(from, text);
 
 net.onClose = () => {
+  if (switching) return;
   running = false;
+  inMenu = false;
   ui.addSysChat('与服务器断开连接');
-  ui.showMenu();
+  ui.toast('与服务器断开连接');
+  ui.showAccount();
+  accountBg.setPetals(loadCollection());
+  accountBg.start();
+};
+
+// ---------- 界面流程 ----------
+
+const readyBtn = document.getElementById('readybtn') as HTMLButtonElement;
+const gardenBtn = document.getElementById('map-garden') as HTMLButtonElement;
+const menuScreen = document.getElementById('menuscreen')!;
+
+window.setTimeout(() => {
+  ui.hideLoading();
+  ui.bindAccount();
+  void bootstrap();
+}, 900);
+
+window.addEventListener('resize', () => {
+  menuBg.resize();
+  accountBg.resize();
+});
+
+async function bootstrap(): Promise<void> {
+  const saved = localStorage.getItem('glorr.server');
+  if (saved && SERVERS.some((s) => s.id === saved)) currentServerId = saved;
+  const server = getServer(currentServerId) ?? SERVERS[0];
+  currentServerId = server.id;
+  token = localStorage.getItem(tokenKey(server.id)) || '';
+  sfx.ensure();
+
+  if (token) {
+    // 有 token:静默恢复会话
+    try {
+      await net.connect(server.url);
+      net.whoami(token);
+      window.setTimeout(() => {
+        if (!inMenu) {
+          ui.showAccount();
+          accountBg.setPetals(loadCollection());
+          accountBg.start();
+        }
+      }, 2500);
+      return;
+    } catch {
+      /* 落到账号屏 */
+    }
+  }
+  ui.showAccount();
+  accountBg.setPetals(loadCollection());
+  accountBg.start();
+}
+
+function enterMenu(): void {
+  inMenu = true;
+  ui.hideSettings();
+  ui.hideAccount();
+  ui.setAccountChip(account.name, account.level, account.kills);
   menuBg.setPetals(loadCollection());
   menuBg.start();
-  ui.toast('与服务器断开连接');
-};
+  accountBg.stop();
+  menuScreen.classList.remove('hidden');
+}
+
+function onReady(): void {
+  if (!account.name) {
+    ui.toast('请先登录或注册账号');
+    ui.showAccount();
+    return;
+  }
+  readyBtn.disabled = true;
+  readyBtn.textContent = '已就绪 ✓';
+  gardenBtn.classList.add('pulse');
+  ui.toast('选择地图开始游戏');
+}
+
+readyBtn.addEventListener('click', onReady);
+
+gardenBtn.addEventListener('click', () => {
+  if (!readyBtn.disabled) {
+    ui.toast('先点击「准备就绪」');
+    return;
+  }
+  void play();
+});
+
+async function play(): Promise<void> {
+  const server = getServer(currentServerId) ?? SERVERS[0];
+  sfx.ensure();
+  gardenBtn.disabled = true;
+  gardenBtn.textContent = '连接中…';
+  try {
+    if (!net.connected) await net.connect(server.url);
+    net.join(token);
+  } catch (err) {
+    ui.toast(err instanceof Error ? err.message : String(err));
+    gardenBtn.disabled = false;
+    gardenBtn.textContent = '花园';
+    return;
+  }
+  gardenBtn.disabled = false;
+  gardenBtn.textContent = '花园';
+  running = true;
+  ui.hideMenu();
+  menuBg.stop();
+}
+
+async function switchServer(id: string): Promise<void> {
+  const server = getServer(id);
+  if (!server || id === currentServerId) return;
+  switching = true;
+  running = false;
+  net.close();
+  currentServerId = id;
+  localStorage.setItem('glorr.server', id);
+  token = localStorage.getItem(tokenKey(id)) || '';
+  account = { name: '', level: 1, kills: 0, admin: false };
+  try {
+    await net.connect(server.url);
+    if (token) {
+      net.whoami(token);
+      // whoami 成功 → onAuthOk → enterMenu;失败 → onAuthErr → 账号屏
+    } else {
+      switching = false;
+      ui.hideSettings();
+      ui.showAccount();
+      accountBg.setPetals(loadCollection());
+      accountBg.start();
+    }
+  } catch {
+    switching = false;
+    ui.hideSettings();
+    ui.showAccount();
+    ui.accountMsg(`无法连接 ${server.name}`);
+    accountBg.setPetals(loadCollection());
+    accountBg.start();
+  }
+}
 
 // ---------- 键盘 ----------
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     ui.closeCraft();
+    ui.hideSettings();
     (document.activeElement as HTMLElement | null)?.blur();
     return;
   }
@@ -286,7 +385,6 @@ window.addEventListener('keydown', (e) => {
     ui.focusChat();
     return;
   }
-  // 热键 1-9 / 0:装备背包条目
   if (/^[0-9]$/.test(e.key)) {
     const idx = e.key === '0' ? 9 : Number(e.key) - 1;
     ui.equipEntry(idx);
@@ -307,7 +405,6 @@ function frame(): void {
   const selfEnt = net.selfEnt();
   const chatFocused = ui.isChatFocused();
 
-  // 输入上报(20Hz,聊天聚焦时暂停)
   inputAcc += dt;
   if (inputAcc >= 0.05 && s && !s.dead && !chatFocused) {
     inputAcc = 0;

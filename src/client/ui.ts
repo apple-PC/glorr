@@ -1,6 +1,7 @@
 // glorr UI 层:florr 式 HUD(花瓣双栏/玩家列表/聊天/小地图)+ 弹窗 + 拖拽
 import { CRAFT_INPUT, CRAFT_SUCCESS, ETERNAL, MAX_SLOTS, RARITY_COLORS, WORLD, rarityName } from '@shared/constants';
 import { getPetal } from '@shared/data/petals';
+import { DEFAULT_SERVER_ID, SERVERS } from '@shared/servers';
 import type { Net, SelfState } from '@client/net';
 import { drawFlower, drawPetalIcon } from '@client/sprites';
 import { drawMinimap } from '@client/minimap';
@@ -14,6 +15,9 @@ export interface UiCallbacks {
   onRespawn(): void;
   onToggleSound(): void;
   onSendChat(text: string): void;
+  onLogin(name: string, password: string): void;
+  onRegister(name: string, password: string): void;
+  onSelectServer(id: string): void;
 }
 
 interface InvEntry {
@@ -101,11 +105,157 @@ export class Ui {
       this.deathScreen.classList.add('hidden');
       this.cb.onRespawn();
     });
+    document.getElementById('menusettingsbtn')!.addEventListener('click', () => this.openSettings());
+    document.getElementById('hudsettingsbtn')!.addEventListener('click', () => this.openSettings());
+    document.getElementById('settingsclose')!.addEventListener('click', () => this.settingsModal.classList.add('hidden'));
+    (document.getElementById('soundtoggle') as HTMLInputElement).addEventListener('change', (e) => {
+      const on = (e.target as HTMLInputElement).checked;
+      this.setSoundLabel(on);
+      this.cb.onToggleSound();
+    });
   }
 
   setSoundLabel(on: boolean): void {
     this.soundBtn.classList.toggle('off', !on);
     this.menuSoundBtn.classList.toggle('off', !on);
+    const toggle = document.getElementById('soundtoggle') as HTMLInputElement;
+    if (toggle) toggle.checked = on;
+  }
+
+  // ---------- 账号屏 ----------
+
+  private accScreen = document.getElementById('accountscreen')!;
+  private accMsg = document.getElementById('acc-msg')!;
+  private accName = document.getElementById('acc-name') as HTMLInputElement;
+  private accPass = document.getElementById('acc-pass') as HTMLInputElement;
+  private accGo = document.getElementById('acc-go') as HTMLButtonElement;
+  private accMode: 'login' | 'register' = 'login';
+
+  bindAccount(): void {
+    const tabLogin = document.getElementById('tab-login')!;
+    const tabRegister = document.getElementById('tab-register')!;
+    const setMode = (mode: 'login' | 'register') => {
+      this.accMode = mode;
+      tabLogin.classList.toggle('active', mode === 'login');
+      tabRegister.classList.toggle('active', mode === 'register');
+      this.accGo.textContent = mode === 'login' ? '登录' : '注册并进入';
+      this.accMsg.textContent = '';
+      this.accPass.placeholder = mode === 'login' ? '密码(至少 4 位)' : '设置密码(至少 4 位)';
+    };
+    tabLogin.addEventListener('click', () => setMode('login'));
+    tabRegister.addEventListener('click', () => setMode('register'));
+    this.accGo.addEventListener('click', () => {
+      const name = this.accName.value.trim();
+      const password = this.accPass.value;
+      if (this.accMode === 'login') this.cb.onLogin(name, password);
+      else this.cb.onRegister(name, password);
+    });
+    for (const input of [this.accName, this.accPass]) {
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if ((e as KeyboardEvent).key === 'Enter') this.accGo.click();
+      });
+    }
+  }
+
+  showAccount(): void {
+    this.accScreen.classList.remove('hidden');
+    document.getElementById('menuscreen')!.classList.add('hidden');
+  }
+
+  hideAccount(): void {
+    this.accScreen.classList.add('hidden');
+  }
+
+  accountMsg(text: string): void {
+    this.accMsg.textContent = text;
+  }
+
+  setAccountChip(name: string, level: number, kills: number): void {
+    document.getElementById('chipname')!.textContent = name;
+    document.getElementById('chiplevel')!.textContent = `Lv ${level} · 击杀 ${kills}`;
+    document.getElementById('accountchip')!.classList.remove('hidden');
+    const cv = document.getElementById('accavatar') as HTMLCanvasElement;
+    const c = cv.getContext('2d')!;
+    c.clearRect(0, 0, cv.width, cv.height);
+    drawFlower(c, 17, 17, 10, -Math.PI / 2, {});
+  }
+
+  // ---------- 设置:服务器选择 ----------
+
+  private settingsModal = document.getElementById('settingsmodal')!;
+  private serverListEl = document.getElementById('serverlist')!;
+  private selectedServer = DEFAULT_SERVER_ID;
+  private serverProbes = new Map<string, { status: 'online' | 'offline' | 'testing'; ms?: number }>();
+
+  openSettings(): void {
+    this.settingsModal.classList.remove('hidden');
+    this.buildServerList();
+    this.probeServers();
+  }
+
+  hideSettings(): void {
+    this.settingsModal.classList.add('hidden');
+  }
+
+  showAdminLink(show: boolean): void {
+    document.getElementById('adminlinkrow')!.classList.toggle('hidden', !show);
+  }
+
+  private buildServerList(): void {
+    this.serverListEl.innerHTML = '';
+    for (const server of SERVERS) {
+      const row = document.createElement('button');
+      row.className = `srow-server${server.id === this.selectedServer ? ' selected' : ''}`;
+      const probe = this.serverProbes.get(server.id);
+      const statusHtml =
+        probe?.status === 'online'
+          ? `<span class="sstatus online">在线 ${probe.ms ?? '?'}ms</span>`
+          : probe?.status === 'offline'
+            ? `<span class="sstatus offline">离线</span>`
+            : `<span class="sstatus">检测中…</span>`;
+      row.innerHTML = `<span class="sname">${server.name}</span><span class="snote">${server.note}</span>${statusHtml}`;
+      row.addEventListener('click', () => {
+        if (server.id === this.selectedServer) return;
+        this.selectedServer = server.id;
+        this.cb.onSelectServer(server.id);
+        this.buildServerList();
+        this.probeServers();
+      });
+      this.serverListEl.appendChild(row);
+    }
+  }
+
+  /** 轻量探测:WS 连接 + ping 计时 */
+  private probeServers(): void {
+    for (const server of SERVERS) {
+      this.serverProbes.set(server.id, { status: 'testing' });
+      const started = performance.now();
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(server.url);
+      } catch {
+        this.serverProbes.set(server.id, { status: 'offline' });
+        continue;
+      }
+      const done = (online: boolean) => {
+        if (!online) this.serverProbes.set(server.id, { status: 'offline' });
+        else this.serverProbes.set(server.id, { status: 'online', ms: Math.round(performance.now() - started) });
+        this.buildServerList();
+      };
+      const timer = window.setTimeout(() => {
+        try { ws.close(); } catch { /* ignore */ }
+      }, 4000);
+      ws.onopen = () => {
+        window.clearTimeout(timer);
+        try { ws.close(); } catch { /* ignore */ }
+        done(true);
+      };
+      ws.onerror = () => {
+        window.clearTimeout(timer);
+        done(false);
+      };
+    }
   }
 
   // ---------- 拖拽(背包热键栏 ⇄ 装备槽,拖到世界丢弃) ----------

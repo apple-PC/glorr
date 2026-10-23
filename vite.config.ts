@@ -25,5 +25,11 @@ export default defineConfig({
     outDir: '../../dist/client',
     emptyOutDir: true,
     target: 'es2022',
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./src/client/index.html', import.meta.url)),
+        admin: fileURLToPath(new URL('./src/client/admin/index.html', import.meta.url)),
+      },
+    },
   },
 });
