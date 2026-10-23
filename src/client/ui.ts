@@ -178,6 +178,12 @@ export class Ui {
     if (el) el.textContent = name;
   }
 
+  /** 账号页服务器提示(如 https 页面无法连本机 ws) */
+  setAccountServerNote(text: string): void {
+    const el = document.getElementById('acc-server-note');
+    if (el) el.textContent = text;
+  }
+
   hideAccount(): void {
     this.accScreen.classList.add('hidden');
   }

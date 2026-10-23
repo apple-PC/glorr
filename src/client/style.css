@@ -488,6 +488,7 @@ html, body {
 .accserver b { color: #9fe3a8; margin: 0 2px; }
 .accserver a { color: #7dd3fc; text-decoration: none; margin-left: 8px; }
 .accserver a:hover { text-decoration: underline; }
+.accnote { font-size: 11px; color: #ffd9a0; max-width: 300px; text-align: center; line-height: 1.6; margin-top: 4px; }
 
 /* ============ 设置弹窗 ============ */
 #settingsmodal {

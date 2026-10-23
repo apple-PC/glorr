@@ -165,11 +165,14 @@ npm run typecheck      # 全量类型检查
 npm start &            # 先起服务端
 npm run smoke          # 机器人冒烟:注册/鉴权/战斗/掉落/合成/心跳(20 项)
 npx tsx scripts/persist-admin-check.ts   # 账号持久化 + 管理 API(14 项)
+npm run test:ui        # 无头 Chrome 界面端到端:注册→菜单→进游戏(7 项,需本机有 Chrome/Edge)
 
 # 平衡模拟(需 GLORR_DEBUG=1 启动服务端,按出装实测战斗数据)
 GLORR_DEBUG=1 npm start &
-npx tsx scripts/balance-sim.ts
+npm run balance
 ```
+
+> `npm run test:ui` 用 CDP 驱动真实浏览器点一遍完整流程,专门防"界面空白/脚本异常"这类问题(2026-10-24 的绿色空屏就是被它后来补上的回归用例)。
 
 ## 平衡调优记录
 
