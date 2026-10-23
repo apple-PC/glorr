@@ -156,6 +156,8 @@ PORT=8080 npm start
 
 部署到公网后需支持 WebSocket(建议 wss 反代);修改 `src/shared/servers.ts` 的三个 url 指向新域名即可全站生效。注意:免费沙箱类平台磁盘不持久,`data/accounts.json` 可能在重启/重新部署后重置,正式运营建议挂持久卷或改用 SQLite/外部数据库。
 
+> ⚠️ **部署前先删本地 `data/`**:该目录不在 .gitignore 的部署排除范围内,本机测试账号会随源码一起上传到沙箱。生产环境请确保只上传空存档或配置独立的 `DATA_DIR`。
+
 ## 测试
 
 ```bash
