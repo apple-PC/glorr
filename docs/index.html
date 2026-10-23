@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>glorr — 社区共创花瓣对战</title>
+  <meta name="description" content="glorr:开源社区共创的 Florr 式多人实时花瓣对战游戏" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23ffd94d'/><circle cx='16' cy='6' r='5' fill='%23ff8fb3'/><circle cx='16' cy='26' r='5' fill='%23ff8fb3'/><circle cx='6' cy='16' r='5' fill='%23ff8fb3'/><circle cx='26' cy='16' r='5' fill='%23ff8fb3'/></svg>" />
+  <script type="module" crossorigin src="/assets/index-DIQ_Nf71.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-ClqsdeW0.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="topleft" class="panel">
+      <div id="levelrow"><span id="level">1</span><span class="lvl-label">级</span></div>
+      <div id="xpbar"><div id="xpfill"></div></div>
+      <div id="killrow">击杀 <span id="kills">0</span></div>
+    </div>
+
+    <div id="topright" class="panel">
+      <canvas id="minimap" width="148" height="148"></canvas>
+      <div id="latency">-- ms</div>
+    </div>
+
+    <div id="bottombar">
+      <div id="slots"></div>
+      <div id="actionrow">
+        <button id="invbtn" class="gbtn">背包</button>
+        <button id="craftbtn" class="gbtn">合成</button>
+        <button id="soundbtn" class="gbtn">音效:开</button>
+      </div>
+    </div>
+
+    <div id="toasts"></div>
+  </div>
+
+  <!-- 背包面板 -->
+  <div id="invpanel" class="panel hidden">
+    <div class="ptitle">背包 <span class="pcount" id="invcount">0/200</span></div>
+    <canvas id="invcanvas" width="294" height="300"></canvas>
+    <div class="phint">拖拽花瓣到下方槽位装备;拖出面板即丢弃</div>
+  </div>
+
+  <!-- 合成面板 -->
+  <div id="craftpanel" class="panel hidden">
+    <div class="ptitle">合成(5 合 1)</div>
+    <div class="crow">
+      <select id="craftselect"></select>
+    </div>
+    <div class="crow" id="craftinfo">选择要合成的花瓣</div>
+    <div class="crow"><canvas id="craftpreview" width="240" height="56"></canvas></div>
+    <div class="crow">
+      <button id="craftgo" class="gbtn primary" disabled>合成</button>
+    </div>
+    <div class="phint">成功率随稀有度递减;失败会随机损失 1-4 个材料</div>
+  </div>
+
+  <!-- 开始界面 -->
+  <div id="startscreen">
+    <div class="startbox panel">
+      <div class="logo">
+        <svg width="72" height="72" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#ffd94d"/><circle cx="16" cy="6" r="5" fill="#ff8fb3"/><circle cx="16" cy="26" r="5" fill="#ff8fb3"/><circle cx="6" cy="16" r="5" fill="#ff8fb3"/><circle cx="26" cy="16" r="5" fill="#ff8fb3"/></svg>
+      </div>
+      <h1>glorr</h1>
+      <p class="tagline">开源社区共创的 Florr 式多人实时花瓣对战</p>
+      <div class="field">
+        <label>昵称</label>
+        <input id="nameinput" maxlength="12" placeholder="花朵" />
+      </div>
+      <div class="field">
+        <label>服务器地址</label>
+        <input id="serverinput" placeholder="ws://localhost:8080" />
+      </div>
+      <button id="playbtn" class="gbtn primary big">开始游戏</button>
+      <div class="help">
+        <b>操作</b>:鼠标移动控制花朵 · 花瓣自动旋转攻击 · Tab 背包 · 拖拽装备/丢弃<br />
+        <b>目标</b>:击杀生物掉落花瓣,合成更高稀有度,从花园一路打向深处
+      </div>
+      <div class="startfoot">受 florr.io 启发的社区作品 · 资产原创 · <a href="https://github.com" target="_blank" rel="noopener">GitHub</a></div>
+    </div>
+  </div>
+
+  <!-- 死亡界面 -->
+  <div id="deathscreen" class="hidden">
+    <div class="deathbox panel">
+      <h2>你死了</h2>
+      <div class="dstat">到达等级 <b id="deathlevel">1</b> · 击杀 <b id="deathkills">0</b></div>
+      <div class="dhint">掉落物已散落在原地,趁别人捡走前跑尸也许能挽回一部分</div>
+      <button id="respawnbtn" class="gbtn primary big">重生</button>
+    </div>
+  </div>
+
+  <div id="dragghost" class="hidden"></div>
+</body>
+</html>

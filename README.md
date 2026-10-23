@@ -78,10 +78,17 @@ src/
 
 ### 1. GitHub Pages(客户端站点)
 
-推送到 `main` 即自动构建部署(见 `.github/workflows/pages.yml`),站点地址:
+仓库已开启 Pages(`main` 分支 `/docs` 目录源),站点地址:
 
 ```
-https://<你的用户名>.github.io/glorr/
+https://apple-PC.github.io/glorr/
+```
+
+更新站点只需重新构建并提交 `docs/`:
+
+```bash
+npm run build:pages   # = vite build --outDir docs
+git add docs && git commit -m "chore: rebuild pages" && git push
 ```
 
 > 注意:Pages 只托管静态客户端,**联机需要单独的游戏服务端**。页面开始界面填写服务器地址即可,也可用 `?server=wss://你的域名` 参数预设。
