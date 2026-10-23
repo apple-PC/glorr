@@ -1,0 +1,9 @@
+services:
+  glorr:
+    build: .
+    container_name: glorr-server
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    restart: unless-stopped
