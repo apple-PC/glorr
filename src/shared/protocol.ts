@@ -12,6 +12,7 @@ export type ClientMsg =
   | { t: 'moveInv'; from: number; to: number } // 背包内移动
   | { t: 'craft'; id: string; rarity: number } // 5 合 1 合成
   | { t: 'drop'; uid: number }                 // 丢弃背包花瓣
+  | { t: 'debug_grant'; items: { id: string; rarity: number }[] } // 仅 GLORR_DEBUG=1 可用
   | { t: 'chat'; text: string }                // 房间聊天
   | { t: 'respawn' }
   | { t: 'ping'; ts: number };

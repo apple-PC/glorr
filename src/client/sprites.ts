@@ -77,6 +77,36 @@ function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
       ctx.quadraticCurveTo(s * 0.82, -s * 0.05, 0, s * 0.88);
       ctx.quadraticCurveTo(-s * 0.82, -s * 0.05, 0, -s);
       break;
+    case 'peas': {
+      // 豌豆荚:三颗豌豆
+      ctx.arc(0, -s * 0.35, s * 0.42, 0, TAU);
+      break;
+    }
+    case 'magnet': {
+      // U 形磁铁
+      const leg = s * 0.3;
+      const rad = s * 0.62;
+      ctx.moveTo(-rad, -s * 0.05);
+      ctx.lineTo(-rad, s * 0.55);
+      ctx.lineTo(-rad + leg, s * 0.55);
+      ctx.lineTo(-rad + leg, -s * 0.05 + leg * 0.6);
+      ctx.arc(0, -s * 0.05 + leg * 0.6, rad - leg, Math.PI, 0, true);
+      ctx.lineTo(rad, s * 0.55);
+      ctx.lineTo(rad - leg, s * 0.55);
+      ctx.lineTo(rad - leg, -s * 0.05);
+      ctx.arc(0, -s * 0.05, rad, 0, Math.PI, true);
+      ctx.closePath();
+      break;
+    }
+    case 'wing': {
+      // 翅膀:弧形羽叶
+      ctx.moveTo(0, -s);
+      ctx.quadraticCurveTo(s * 0.95, -s * 0.3, s * 0.55, s * 0.55);
+      ctx.quadraticCurveTo(s * 0.1, s * 0.1, 0, s * 0.05);
+      ctx.quadraticCurveTo(-s * 0.1, s * 0.1, -s * 0.55, s * 0.55);
+      ctx.quadraticCurveTo(-s * 0.95, -s * 0.3, 0, -s);
+      break;
+    }
     default: {
       // basic:椭圆瓣
       ctx.ellipse(0, -s * 0.12, s * 0.55, s * 0.88, 0, 0, TAU);

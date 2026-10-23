@@ -1,7 +1,7 @@
 // glorr 世界渲染:背景 / 实体 / 粒子 / 浮动文字
 import { DROP_DESPAWN, RARITY_COLORS, RINGS, WORLD } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
-import { getPetal, rotationSpeed } from '@shared/data/petals';
+import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
 import type { Net } from '@client/net';
 import { drawBar, drawFlower, drawMob, drawPetal } from '@client/sprites';
@@ -267,6 +267,14 @@ export class Renderer {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+      } else if (e.projKind === 'pea') {
+        ctx.fillStyle = '#8be07b';
+        ctx.strokeStyle = '#3f7a33';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
       } else {
         // 导弹
         ctx.fillStyle = '#f0f0f0';
@@ -305,7 +313,7 @@ export class Renderer {
     invulnFlag: number,
     selfAngles?: number[],
   ): void {
-    const orbit = 46;
+    const orbit = orbitRadius(slotList);
     const rot = rotationSpeed(slotList);
     for (let i = 0; i < slotList.length; i++) {
       const s = slotList[i];

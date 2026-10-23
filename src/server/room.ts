@@ -1,6 +1,6 @@
 import type { WebSocket } from 'ws';
 import * as C from '@shared/constants';
-import { getPetal, petalMaxHp, petalDmg, petalHealPerSec, petalOnHitHeal } from '@shared/data/petals';
+import { getPetal, petalExists, petalMaxHp, petalDmg, petalHealPerSec, petalOnHitHeal, orbitRadius, pickupRadius } from '@shared/data/petals';
 import { getMob, SPECIES_INDEX } from '@shared/data/mobs';
 import type { PetalInst, SlotState, SlotWire } from '@shared/types';
 import { clamp, dist, dist2, randRange, TAU, weightedPick } from '@shared/math';
@@ -44,6 +44,9 @@ interface WebZone {
 }
 
 const SAVE_INTERVAL = 450; // 15s(30Hz)
+
+/** 调试模式:仅 GLORR_DEBUG=1 时允许 debug_grant(平衡模拟/测试用) */
+const DEBUG_MODE = process.env.GLORR_DEBUG === '1';
 
 class Player {
   slots: (Slot | null)[] = Array.from({ length: C.MAX_SLOTS }, () => null);
@@ -138,6 +141,7 @@ export class Room {
   webs = new Map<number, WebZone>();
 
   closed = false;
+  readonly createdAt = Date.now();
 
   private nextId = 1;
   private nextUid = 1;
@@ -171,6 +175,13 @@ export class Room {
         console.error(`[room:${this.name}] step 异常:`, err);
       }
     }, C.TICK_MS);
+  }
+
+  /** 停止模拟并保存所有在线玩家(房间回收时调用) */
+  stop(): void {
+    clearInterval(this.timer);
+    for (const p of this.players.values()) this.savePlayer(p);
+    this.players.clear();
   }
 
   // ---------- 连接管理(账号已由网关层鉴权) ----------
@@ -291,6 +302,20 @@ export class Room {
         this.savePlayer(p);
         break;
       }
+      case 'debug_grant': {
+        if (!DEBUG_MODE) return;
+        const items = (msg as { items?: { id: string; rarity: number }[] }).items;
+        if (!Array.isArray(items)) return;
+        for (const it of items.slice(0, 40)) {
+          if (!petalExists(it.id)) continue;
+          const rar = clamp(Math.floor(Number(it.rarity) || 0), 0, C.UNIQUE);
+          p.inv.push({ uid: this.nextUid++, id: it.id, rarity: rar });
+        }
+        p.dirty = true;
+        this.sendYou(p);
+        this.savePlayer(p);
+        break;
+      }
       case 'chat': {
         const text = String(msg.text ?? '').replace(/[<>]/g, '').trim().slice(0, 80);
         if (!text) return;
@@ -401,7 +426,7 @@ export class Room {
   }
 
   private updatePetals(p: Player, now: number): void {
-    const orbit = C.PLAYER.petalOrbit;
+    const orbit = orbitRadius(p.slots);
     for (const s of p.slots) {
       if (!s) continue;
       const def = getPetal(s.id);
@@ -412,7 +437,7 @@ export class Room {
 
     const near: Mob[] = [];
     for (const m of this.mobs.values()) {
-      if (dist2(m.x, m.y, p.x, p.y) < 360 * 360) near.push(m);
+      if (dist2(m.x, m.y, p.x, p.y) < (orbit + 120) * (orbit + 120)) near.push(m);
     }
 
     for (let i = 0; i < p.slots.length; i++) {
@@ -428,20 +453,25 @@ export class Room {
         } else {
           const px = p.x + Math.cos(s.angle) * orbit;
           const py = p.y + Math.sin(s.angle) * orbit;
-          this.bullets.set(this.nextId, {
-            id: this.nextId++,
-            owner: p.id,
-            x: px,
-            y: py,
-            vx: Math.cos(s.angle) * (def.projSpeed ?? 400),
-            vy: Math.sin(s.angle) * (def.projSpeed ?? 400),
-            dmg: petalDmg(def, s.rarity),
-            kind: def.id === 'web' ? 'web' : 'missile',
-            traveled: 0,
-            range: def.projRange ?? 500,
-            slow: def.slow,
-            slowDur: def.slowDur,
-          });
+          const speed = def.projSpeed ?? 400;
+          const count = def.projCount ?? 1;
+          for (let k = 0; k < count; k++) {
+            const a = s.angle + (k * TAU) / count;
+            this.bullets.set(this.nextId, {
+              id: this.nextId++,
+              owner: p.id,
+              x: px,
+              y: py,
+              vx: Math.cos(a) * speed,
+              vy: Math.sin(a) * speed,
+              dmg: petalDmg(def, s.rarity),
+              kind: def.id === 'web' ? 'web' : def.id === 'peas' ? 'pea' : 'missile',
+              traveled: 0,
+              range: def.projRange ?? 500,
+              slow: def.slow,
+              slowDur: def.slowDur,
+            });
+          }
           s.cd = def.reload;
         }
         continue;
@@ -457,7 +487,8 @@ export class Room {
         if (dist2(px, py, m.x, m.y) > rr * rr) continue;
         const dmg = Math.max(1, petalDmg(def, s.rarity) - getMob(m.defId).armor);
         this.damageMob(m, dmg, p.id, now);
-        s.hp -= m.dmg * 0.6;
+        // 花瓣耐久损耗(系数见 constants.PLAYER.petalWear)
+        s.hp -= m.dmg * C.PLAYER.petalWear;
         if (def.onHitHeal && p.hp < p.maxHp) {
           p.hp = Math.min(p.maxHp, p.hp + petalOnHitHeal(def, s.rarity));
         }
@@ -730,7 +761,7 @@ export class Room {
       }
       for (const p of this.players.values()) {
         if (p.dead) continue;
-        const rr = C.PLAYER.pickupRadius;
+        const rr = pickupRadius(p.slots);
         if (dist2(d.x, d.y, p.x, p.y) > rr * rr) continue;
         if (p.inv.length >= C.PLAYER.invCap) continue;
         p.inv.push({ uid: this.nextUid++, id: d.petalId, rarity: d.rarity });

@@ -40,6 +40,18 @@ function getRoom(name: string): Room | null {
   return room;
 }
 
+// 空闲房间回收:0 玩家且创建超过 10 分钟
+setInterval(() => {
+  const now = Date.now();
+  for (const [name, room] of rooms) {
+    if (room.players.size === 0 && now - room.createdAt > 10 * 60 * 1000) {
+      room.stop();
+      rooms.delete(name);
+      log(`房间回收:${name}`);
+    }
+  }
+}, 60 * 1000);
+
 // ---------- 静态文件 ----------
 
 const MIME: Record<string, string> = {

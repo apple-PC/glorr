@@ -641,6 +641,17 @@ export class Ui {
     );
   }
 
+  setLatency(ms: number): void {
+    const el = document.getElementById('pingspan');
+    if (el) el.textContent = ms > 0 ? `${ms}ms` : '';
+  }
+
+  /** 小地图区域名(进入 PvP 区时提示) */
+  setZoneText(text: string): void {
+    const el = document.getElementById('zonetext');
+    if (el) el.textContent = text;
+  }
+
   // ---------- Toast / 死亡 ----------
 
   toast(text: string): void {
@@ -655,9 +666,11 @@ export class Ui {
     while (this.toastsEl.children.length > 4) this.toastsEl.firstChild?.remove();
   }
 
-  showDeath(level: number, kills: number): void {
+  showDeath(level: number, kills: number, lost = ''): void {
     this.deathLevel.textContent = String(level);
     this.deathKills.textContent = String(kills);
+    const lostEl = document.getElementById('deathlost');
+    if (lostEl) lostEl.textContent = lost ? `损失:${lost}` : '';
     this.deathScreen.classList.remove('hidden');
   }
 

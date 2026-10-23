@@ -15,7 +15,7 @@ export const MOBS: MobDef[] = [
   {
     id: 'ladybug', name: '瓢虫', hp: 42, dmg: 9, speed: 105, radius: 20, xp: 8, armor: 1,
     behavior: 'neutral', aggro: 460, color: '#e5484d',
-    drops: [['rose', 5], ['leaf', 4], ['stinger', 2]],
+    drops: [['rose', 5], ['leaf', 4], ['stinger', 2], ['wing', 1]],
   },
   {
     id: 'rock', name: '石头', hp: 130, dmg: 14, speed: 0, radius: 27, xp: 10, armor: 6,
@@ -25,7 +25,7 @@ export const MOBS: MobDef[] = [
   {
     id: 'bee', name: '蜜蜂', hp: 26, dmg: 12, speed: 215, radius: 14, xp: 10, armor: 0,
     behavior: 'aggressive', aggro: 400, color: '#f5c518',
-    drops: [['stinger', 4], ['honey', 4], ['leaf', 2]],
+    drops: [['stinger', 4], ['honey', 4], ['leaf', 2], ['magnet', 1]],
   },
   {
     id: 'hornet', name: '黄蜂', hp: 34, dmg: 10, speed: 135, radius: 15, xp: 14, armor: 1,
@@ -36,7 +36,7 @@ export const MOBS: MobDef[] = [
   {
     id: 'spider', name: '蜘蛛', hp: 30, dmg: 14, speed: 265, radius: 16, xp: 18, armor: 0,
     behavior: 'aggressive', aggro: 460, color: '#5b5f6b',
-    drops: [['web', 5], ['faster', 3], ['stinger', 2]],
+    drops: [['web', 5], ['faster', 3], ['stinger', 2], ['peas', 2]],
   },
   {
     id: 'bumblebee', name: '熊蜂', hp: 95, dmg: 18, speed: 155, radius: 23, xp: 30, armor: 4,

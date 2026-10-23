@@ -6,9 +6,9 @@
   <title>glorr — 社区共创花瓣对战</title>
   <meta name="description" content="glorr:开源社区共创的 Florr 式多人实时花瓣对战游戏" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23ffd94d'/><circle cx='16' cy='6' r='5' fill='%23ff8fb3'/><circle cx='16' cy='26' r='5' fill='%23ff8fb3'/><circle cx='6' cy='16' r='5' fill='%23ff8fb3'/><circle cx='26' cy='16' r='5' fill='%23ff8fb3'/></svg>" />
-  <script type="module" crossorigin src="./assets/index-BQgy2jbF.js"></script>
+  <script type="module" crossorigin src="./assets/index-33Tv2fXK.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-BMw33A9k.css">
+  <link rel="stylesheet" crossorigin href="./assets/index-B1oAFb2M.css">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -35,7 +35,7 @@
     <div id="questbox"><b>深入险境</b><span>送一朵花去 C9 最深处</span></div>
     <div id="mapwrap">
       <canvas id="minimap" width="148" height="148"></canvas>
-      <div id="zonename">花园</div>
+      <div id="zonename"><span id="zonetext">花园</span><span id="pingspan"></span></div>
     </div>
 
     <div id="petalbar">
@@ -88,6 +88,7 @@
       <svg class="deadflower" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#8b8f6a"/><circle cx="16" cy="6" r="5" fill="#6a7050"/><circle cx="16" cy="26" r="5" fill="#6a7050"/><circle cx="6" cy="16" r="5" fill="#6a7050"/><circle cx="26" cy="16" r="5" fill="#6a7050"/></svg>
       <h2>你死了</h2>
       <div class="dstat">到达等级 <b id="deathlevel">1</b> · 击杀 <b id="deathkills">0</b></div>
+      <div class="dlost" id="deathlost"></div>
       <div class="dhint">掉落物已散落在原地,趁别人捡走前跑尸也许能挽回一部分</div>
       <button id="respawnbtn" class="greenbtn big">重生</button>
     </div>

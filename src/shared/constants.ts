@@ -77,10 +77,12 @@ export const PLAYER = {
   spawnInvuln: 2.0,    // 复活无敌秒数
   pickupRadius: 46,
   invCap: 200,
-  xpBase: 8,
-  xpPow: 1.7,
+  xpBase: 10,
+  xpPow: 1.45,
   deathDropAll: true,  // 死亡掉落全部携带花瓣
   respawnDelay: 2.5,
+  /** 花瓣受击耐久损耗系数(平衡模拟实测:0.6 新手死亡螺旋,0.45 仍有压力但可换手) */
+  petalWear: 0.45,
 };
 export function xpForLevel(lv: number): number {
   return Math.floor(PLAYER.xpBase * Math.pow(lv, PLAYER.xpPow));

@@ -49,6 +49,19 @@ export const PETALS: PetalDef[] = [
     id: 'honey', name: '蜂蜜', kind: 'heal', dmg: 4, hp: 20, reload: 0, minRarity: 2, healPerSec: 4, slowResist: 0.35,
     desc: '持续回血,并减缓受到的减速效果',
   },
+  {
+    id: 'peas', name: '豌豆', kind: 'ranged', dmg: 8, hp: 12, reload: 2.0, minRarity: 2,
+    projSpeed: 380, projRange: 380, projCount: 4,
+    desc: '一次向四个方向散射豌豆,覆盖面广但单发伤害低',
+  },
+  {
+    id: 'magnet', name: '磁铁', kind: 'buff', dmg: 4, hp: 20, reload: 0, minRarity: 2, pickupBonus: 34,
+    desc: '大幅扩大掉落物拾取范围',
+  },
+  {
+    id: 'wing', name: '翅膀', kind: 'buff', dmg: 4, hp: 18, reload: 0, minRarity: 2, orbitBonus: 9,
+    desc: '加大花瓣环绕半径,从而扩大攻击范围',
+  },
 ];
 
 const PETAL_MAP = new Map(PETALS.map((p) => [p.id, p]));
@@ -95,4 +108,26 @@ export function rotationSpeed(loadout: ({ id: string } | null)[]): number {
     if (def.rotMul) rot *= def.rotMul;
   }
   return rot;
+}
+
+/** 由装备计算花瓣轨道半径(翅膀加大攻击范围;两端同公式) */
+export function orbitRadius(loadout: ({ id: string } | null)[]): number {
+  let r = C.PLAYER.petalOrbit;
+  for (const s of loadout) {
+    if (!s) continue;
+    const def = PETAL_MAP.get(s.id);
+    if (def?.orbitBonus) r += def.orbitBonus;
+  }
+  return r;
+}
+
+/** 由装备计算掉落拾取半径(磁铁) */
+export function pickupRadius(loadout: ({ id: string } | null)[]): number {
+  let r = C.PLAYER.pickupRadius;
+  for (const s of loadout) {
+    if (!s) continue;
+    const def = PETAL_MAP.get(s.id);
+    if (def?.pickupBonus) r += def.pickupBonus;
+  }
+  return r;
 }

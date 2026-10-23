@@ -1,7 +1,7 @@
 // glorr 客户端入口:加载屏 → 账号(登录/注册)→ 主菜单 → 选图游玩
-import { MAX_SLOTS, PLAYER, WORLD, rarityName } from '@shared/constants';
+import { MAX_SLOTS, PLAYER, WORLD, isPvp, rarityName } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
-import { getPetal, rotationSpeed } from '@shared/data/petals';
+import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import { TAU } from '@shared/math';
 import { DEFAULT_SERVER_ID, SERVERS, getServer } from '@shared/servers';
 import { Camera } from '@client/camera';
@@ -54,6 +54,8 @@ let inputAcc = 0;
 let minimapAcc = 0;
 let listAcc = 0;
 let lastHitSfx = 0;
+let reconnectAttempts = 0;
+let reconnectTimer = 0;
 
 const ui = new Ui(net, {
   onEquip: (uid, slot) => net.send({ t: 'equip', uid, slot }),
@@ -116,6 +118,9 @@ const SHOWCASE: { id: string; rarity: number }[] = [
   { id: 'web', rarity: 2 },
   { id: 'faster', rarity: 2 },
   { id: 'honey', rarity: 2 },
+  { id: 'peas', rarity: 2 },
+  { id: 'magnet', rarity: 2 },
+  { id: 'wing', rarity: 2 },
 ];
 
 function loadCollection(): { id: string; rarity: number }[] {
@@ -180,6 +185,7 @@ net.onAuthErr = (reason) => {
 
 net.onYou = (s) => {
   const prev = net.self;
+  reconnectAttempts = 0; // 成功拿到状态即视为重连完成
   ui.setSelf(s);
   saveCollection(s.inv);
   const selfEnt = net.selfEnt();
@@ -216,11 +222,22 @@ net.onEv = (k, v) => {
       particles.ring(self.x, self.y, '#ffe65d', 70);
       ui.toast(`升级到 Lv.${v ?? ''}`);
       break;
-    case 'death':
+    case 'death': {
       sfx.play('death');
       particles.burst(self.x, self.y, '#ff8fb3', 26, 230, 5);
-      ui.showDeath(net.self?.level ?? 1, net.self?.kills ?? 0);
+      // 统计损失(ev 先于死亡后的 you 到达,此时 self 还是死亡前状态)
+      const tally = new Map<number, number>();
+      for (const it of net.self?.inv ?? []) tally.set(it.rarity, (tally.get(it.rarity) ?? 0) + 1);
+      for (const s of net.self?.slotList ?? []) {
+        if (s) tally.set(s.rarity, (tally.get(s.rarity) ?? 0) + 1);
+      }
+      const lost = [...tally.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([r, n]) => `${rarityName(r)}×${n}`)
+        .join(' ');
+      ui.showDeath(net.self?.level ?? 1, net.self?.kills ?? 0, lost);
       break;
+    }
     case 'respawn':
       ui.hideDeath();
       break;
@@ -230,7 +247,8 @@ net.onEv = (k, v) => {
     case 'break': {
       const idx = v ?? 0;
       const ang = self.slotAngles[idx] ?? 0;
-      particles.burst(self.x + Math.cos(ang) * PLAYER.petalOrbit, self.y + Math.sin(ang) * PLAYER.petalOrbit, '#ffffff', 9, 150, 3);
+      const orbit = orbitRadius(net.self?.slotList ?? []);
+      particles.burst(self.x + Math.cos(ang) * orbit, self.y + Math.sin(ang) * orbit, '#ffffff', 9, 150, 3);
       sfx.play('break');
       break;
     }
@@ -258,12 +276,33 @@ net.onChat = (from, text) => ui.addChat(from, text);
 
 net.onClose = () => {
   if (switching) return;
+  const wasPlaying = running;
   running = false;
   inMenu = false;
+  if (wasPlaying && account.name && reconnectAttempts < 5) {
+    // 游玩中断线:指数退避自动重连(账号进度已保存在服务端)
+    reconnectAttempts++;
+    const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 8000);
+    ui.addSysChat(`连接断开,${(delay / 1000).toFixed(0)}s 后第 ${reconnectAttempts} 次重连…`);
+    reconnectTimer = window.setTimeout(() => void tryReconnect(), delay);
+    return;
+  }
+  reconnectAttempts = 0;
   ui.addSysChat('与服务器断开连接');
   ui.toast('与服务器断开连接');
   showAccountScreen();
 };
+
+async function tryReconnect(): Promise<void> {
+  const server = getServer(currentServerId) ?? SERVERS[0];
+  try {
+    await net.connect(server.url);
+    net.join(token);
+    // 重连成功:welcome + you 会重置预测态并恢复游戏
+  } catch {
+    // 失败:onClose 会安排下一次重连
+  }
+}
 
 // ---------- 界面流程 ----------
 
@@ -488,6 +527,9 @@ function frame(): void {
   if (minimapAcc >= 0.25) {
     minimapAcc = 0;
     ui.drawMinimapFrame();
+    ui.setLatency(net.latency);
+    const se = net.selfEnt();
+    ui.setZoneText(se && isPvp(se.x, se.y) ? '花园 · PvP 区' : '花园');
   }
   listAcc += dt;
   if (listAcc >= 0.5) {
@@ -499,7 +541,7 @@ function frame(): void {
 /** 客户端命中反馈:花瓣与怪物重叠时打火花 + 音效(节流) */
 function hitFx(s: { slotList: ({ id: string; cdPct: number } | null)[] }, now: number): void {
   if (now - lastHitSfx < 70) return;
-  const orbit = PLAYER.petalOrbit;
+  const orbit = orbitRadius(s.slotList);
   for (let i = 0; i < s.slotList.length; i++) {
     const slot = s.slotList[i];
     if (!slot) continue;

@@ -22,11 +22,17 @@ export interface PetalDef {
   slowResist?: number;
   /** 增益:旋转速度加成(加法) */
   rotBonus?: number;
+  /** 增益:花瓣轨道半径加成(攻击范围) */
+  orbitBonus?: number;
+  /** 增益:掉落拾取半径加成 */
+  pickupBonus?: number;
   /** 重型:旋转速度乘区 */
   rotMul?: number;
   /** 远程参数 */
   projSpeed?: number;
   projRange?: number;
+  /** 远程弹丸数量(豌豆四向散射) */
+  projCount?: number;
   /** 远程命中附加减速 */
   slow?: number;
   slowDur?: number;
