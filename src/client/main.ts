@@ -53,6 +53,7 @@ const self = {
 };
 
 let running = false;
+let paused = false;
 let lastT = performance.now();
 let inputAcc = 0;
 let minimapAcc = 0;
@@ -406,6 +407,30 @@ function onReady(): void {
 
 readyBtn.addEventListener('click', onReady);
 
+// ---------- 暂停 ----------
+
+const pauseScreen = document.getElementById('pausescreen')!;
+
+function setPaused(on: boolean): void {
+  if (on && !running) return;
+  paused = on;
+  pauseScreen.classList.toggle('hidden', !on);
+  if (!on) lastT = performance.now();
+}
+
+function quitToMenu(): void {
+  paused = false;
+  running = false;
+  pauseScreen.classList.add('hidden');
+  document.getElementById('hud')!.classList.add('hidden');
+  ui.hideSettings();
+  enterMenu();
+}
+
+document.getElementById('pause-resume')?.addEventListener('click', () => setPaused(false));
+document.getElementById('pause-settings')?.addEventListener('click', () => ui.openSettings());
+document.getElementById('pause-quit')?.addEventListener('click', () => quitToMenu());
+
 gardenBtn.addEventListener('click', () => {
   if (!readyBtn.disabled) {
     ui.toast('先点击「准备就绪」');
@@ -474,9 +499,12 @@ async function switchServer(id: string): Promise<void> {
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    const craftOpen = !document.getElementById('craftmodal')!.classList.contains('hidden');
+    const settingsOpen = !document.getElementById('settingsmodal')!.classList.contains('hidden');
     ui.closeCraft();
     ui.hideSettings();
     (document.activeElement as HTMLElement | null)?.blur();
+    if (running && !craftOpen && !settingsOpen) setPaused(!paused);
     return;
   }
   if (ui.isChatFocused()) return;
@@ -500,19 +528,21 @@ function frame(): void {
   lastT = now;
   if (!running) return;
 
-  net.tick(dt);
+  if (!paused) net.tick(dt);
   const s = net.self;
   const selfEnt = net.selfEnt();
   const chatFocused = ui.isChatFocused();
 
-  inputAcc += dt;
-  if (inputAcc >= 0.05 && s && !s.dead && !chatFocused) {
-    inputAcc = 0;
-    const [dx, dy] = input.vector(self.x, self.y, camera);
-    net.send({ t: 'in', x: dx, y: dy });
+  if (!paused) {
+    inputAcc += dt;
+    if (inputAcc >= 0.05 && s && !s.dead && !chatFocused) {
+      inputAcc = 0;
+      const [dx, dy] = input.vector(self.x, self.y, camera);
+      net.send({ t: 'in', x: dx, y: dy });
+    }
   }
 
-  if (SOLO) {
+  if (!paused && SOLO) {
     // 单机:位置以 LocalSim 权威为准,渲染直接跟随
     const se = selfEnt;
     if (se) {
@@ -531,7 +561,7 @@ function frame(): void {
       self.invuln = s.invuln > 0;
       hitFx(s, now);
     }
-  } else if (s && !s.dead) {
+  } else if (!paused && s && !s.dead) {
     const [dx, dy] = chatFocused ? [0, 0] : input.vector(self.x, self.y, camera);
     if (dx !== 0 || dy !== 0) {
       self.ang = Math.atan2(dy, dx);
@@ -560,11 +590,11 @@ function frame(): void {
     }
     camera.follow(self.x, self.y, dt);
     hitFx(s, now);
-  } else if (selfEnt) {
+  } else if (!paused && selfEnt) {
     camera.follow(selfEnt.x, selfEnt.y, dt);
   }
 
-  particles.update(dt);
+  particles.update(paused ? 0 : dt);
   renderer.draw(
     ctx,
     dpr,

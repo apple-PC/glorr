@@ -13,7 +13,7 @@ import {
   pickupRadius,
 } from '@shared/data/petals';
 import type { ClientMsg } from '@shared/protocol';
-import type { PetalInst, SlotWire } from '@shared/types';
+import type { PetalDef, PetalInst, SlotWire } from '@shared/types';
 import type { EntState, EvKind, GameConn, OtherInfo, SelfState } from '@client/net';
 
 const TAU = Math.PI * 2;
@@ -43,6 +43,13 @@ function weightedPick(w: number[]): number {
   return w.length - 1;
 }
 
+/** 花瓣破碎后的再生冷却(秒);远程按装填时间,近战/治疗/增益给固定冷却 */
+function reloadFor(def: PetalDef): number {
+  if (def.reload > 0) return def.reload;
+  if (def.kind === 'heal' || def.kind === 'buff') return 3;
+  return 2;
+}
+
 interface SlotState {
   id: string;
   rarity: number;
@@ -50,6 +57,10 @@ interface SlotState {
   maxHp: number;
   hitCd: number;
   reloadT: number;
+  /** 破碎待再生 */
+  broken: boolean;
+  /** 再生剩余冷却(秒) */
+  regenT: number;
 }
 interface MobEnt {
   id: number;
@@ -220,6 +231,7 @@ export class LocalSim implements GameConn {
     if (!this.dead) this.updatePlayer(dt);
     this.updateMobs(dt);
     this.updatePetals(dt);
+    this.updateBroken(dt);
     this.updateProjectiles(dt);
     this.updateWebs();
     this.updateDrops();
@@ -296,7 +308,7 @@ export class LocalSim implements GameConn {
   /** 死亡掉落:装备槽 + 背包全部变为地面掉落物(修复"掉落并非预期") */
   private dropAll(): void {
     for (const s of this.slotList) {
-      if (s) this.spawnDrop(s.id, s.rarity, this.x + rand(-26, 26), this.y + rand(-26, 26));
+      if (s && !s.broken) this.spawnDrop(s.id, s.rarity, this.x + rand(-26, 26), this.y + rand(-26, 26));
     }
     for (const it of this.inv) {
       this.spawnDrop(it.id, it.rarity, this.x + rand(-30, 30), this.y + rand(-30, 30));
@@ -495,7 +507,7 @@ export class LocalSim implements GameConn {
 
     for (let i = 0; i < C.MAX_SLOTS; i++) {
       const s = loadout[i];
-      if (!s) continue;
+      if (!s || s.broken) continue;
       const def = getPetal(s.id);
       s.hitCd = Math.max(0, s.hitCd - dt);
       const angle = (i / count) * TAU + rot * this.time;
@@ -533,12 +545,26 @@ export class LocalSim implements GameConn {
             if (def.onHitHeal) this.hp = Math.min(this.maxHp, this.hp + petalOnHitHeal(def, s.rarity));
             s.hp -= md.dmg * C.PLAYER.petalWear;
             if (s.hp <= 0) {
-              loadout[i] = null;
+              s.broken = true;
+              s.regenT = reloadFor(def);
               this.onEv?.('break', i);
             }
             break;
           }
         }
+      }
+    }
+  }
+
+  /** 破碎花瓣的冷却再生:冷却结束恢复满耐久 */
+  private updateBroken(dt: number): void {
+    for (const s of this.slotList) {
+      if (!s || !s.broken) continue;
+      s.regenT -= dt;
+      if (s.regenT <= 0) {
+        s.broken = false;
+        s.regenT = 0;
+        s.hp = s.maxHp;
       }
     }
   }
@@ -637,7 +663,7 @@ export class LocalSim implements GameConn {
     const prev = this.slotList[slot];
     const def = getPetal(item.id);
     const hp = petalMaxHp(def, item.rarity);
-    this.slotList[slot] = { id: item.id, rarity: item.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0 };
+    this.slotList[slot] = { id: item.id, rarity: item.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0, broken: false, regenT: 0 };
     if (prev) this.inv.push({ uid: this.nextUid++, id: prev.id, rarity: prev.rarity });
     this.updateSlots();
   }
@@ -683,22 +709,20 @@ export class LocalSim implements GameConn {
       const item = this.inv.shift()!;
       const def = getPetal(item.id);
       const hp = petalMaxHp(def, item.rarity);
-      this.slotList[i] = { id: item.id, rarity: item.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0 };
+      this.slotList[i] = { id: item.id, rarity: item.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0, broken: false, regenT: 0 };
     }
   }
 
   private updateSlots(): void {
-    let maxR = 0;
-    for (const s of this.slotList) if (s) maxR = Math.max(maxR, s.rarity);
-    for (const it of this.inv) maxR = Math.max(maxR, it.rarity);
-    this.slots = C.slotsForRarity(maxR);
+    // 槽位随等级解锁(5 起,每 3 级 +1,上限 10),与 florr 一致
+    this.slots = Math.min(C.MAX_SLOTS, 5 + Math.floor((this.level - 1) / 3));
   }
 
   // ---------- 状态输出 ----------
 
   private emitYou(): void {
     const slotList: (SlotWire | null)[] = this.slotList.map((s) => {
-      if (!s) return null;
+      if (!s || s.broken) return null;
       const def = getPetal(s.id);
       const cdPct = def.reload > 0 ? Math.max(0, Math.min(1, s.reloadT / def.reload)) : 0;
       return { id: s.id, rarity: s.rarity, hpPct: s.maxHp > 0 ? s.hp / s.maxHp : 0, cdPct } as SlotWire;
@@ -828,7 +852,7 @@ export class LocalSim implements GameConn {
             if (!s) continue;
             const def = getPetal(s.id);
             const hp = petalMaxHp(def, s.rarity);
-            this.slotList[i] = { id: s.id, rarity: s.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0 };
+            this.slotList[i] = { id: s.id, rarity: s.rarity, hp, maxHp: hp, hitCd: 0, reloadT: 0, broken: false, regenT: 0 };
           }
         }
       }

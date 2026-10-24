@@ -560,3 +560,26 @@ html, body {
   filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
   transform: translate(-50%, -50%) scale(1.15);
 }
+
+/* ============ 暂停界面 ============ */
+#pausescreen {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 18, 10, 0.55);
+  backdrop-filter: blur(4px);
+}
+#pausescreen.hidden { display: none; }
+.pausebox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 280px;
+  text-align: center;
+}
+.pausebox h2 { margin: 0 0 2px; }
+.pausebox .dhint { margin-bottom: 8px; }
+.pausebox .greenbtn, .pausebox .ghostbtn { width: 100%; }

@@ -208,6 +208,14 @@ async function main(): Promise<void> {
     const slots = await cdp.eval(`document.querySelectorAll('#equiprow .eslot canvas').length`);
     allOk = check('花瓣槽位已渲染', typeof slots === 'number' && slots >= 5, `${slots} 个槽位`) && allOk;
 
+    // ESC 暂停 / 继续
+    await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+    const pausedOn = await waitFor(cdp, `!document.getElementById('pausescreen').classList.contains('hidden')`, 3000);
+    allOk = check('ESC 可暂停', pausedOn === true) && allOk;
+    await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+    const pausedOff = await waitFor(cdp, `document.getElementById('pausescreen').classList.contains('hidden')`, 3000);
+    allOk = check('ESC 可继续游戏', pausedOff === true) && allOk;
+
     // 账号页可加载(注册/登录表单存在)
     try {
       await cdp.eval(`location.assign('/account/')`);
@@ -219,6 +227,19 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 800));
     const accForm = await cdp.eval(`!!document.getElementById('acc-go') && !!document.getElementById('gh-push')`);
     allOk = check('账号页表单/同步控件存在', accForm === true) && allOk;
+
+    // 管理端:无服务器时进入本地模式(而非卡在"无法连接服务器")
+    try {
+      await cdp.eval(`location.assign('/admin/')`);
+    } catch {
+      /* 导航会销毁上下文,忽略 */
+    }
+    const adminReady = await waitFor(cdp, `!!document.getElementById('dashview') && !document.getElementById('dashview').classList.contains('hidden')`, 10000);
+    allOk = check('管理端可加载(本地模式)', adminReady === true) && allOk;
+    const offlineNote = await cdp.eval(
+      `!!document.getElementById('offline-note') && !document.getElementById('offline-note').classList.contains('hidden')`,
+    );
+    allOk = check('管理端显示本地模式提示', offlineNote === true) && allOk;
 
     const errs = cdp.exceptions.filter((e) => !e.includes('favicon'));
     allOk = check('页面无未捕获异常', errs.length === 0, errs.slice(0, 3).join(' || ')) && allOk;

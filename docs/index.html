@@ -6,11 +6,11 @@
   <title>glorr — 社区共创花瓣对战</title>
   <meta name="description" content="glorr:开源社区共创的 Florr 式多人实时花瓣对战游戏" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23ffd94d'/><circle cx='16' cy='6' r='5' fill='%23ff8fb3'/><circle cx='16' cy='26' r='5' fill='%23ff8fb3'/><circle cx='6' cy='16' r='5' fill='%23ff8fb3'/><circle cx='26' cy='16' r='5' fill='%23ff8fb3'/></svg>" />
-  <script type="module" crossorigin src="./assets/index-B0KK6JzI.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/petals-CPeWuyXa.js">
+  <script type="module" crossorigin src="./assets/index-Dr_BBcj_.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/constants-DLVkJWi5.js">
+  <link rel="modulepreload" crossorigin href="./assets/petals-1frpviFF.js">
   <link rel="modulepreload" crossorigin href="./assets/servers-hkUB6VHO.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-hyxTB0Rq.css">
+  <link rel="stylesheet" crossorigin href="./assets/index-BK9aUF1D.css">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -93,6 +93,17 @@
       <div class="dlost" id="deathlost"></div>
       <div class="dhint">掉落物已散落在原地,趁别人捡走前跑尸也许能挽回一部分</div>
       <button id="respawnbtn" class="greenbtn big">重生</button>
+    </div>
+  </div>
+
+  <!-- ============ 暂停 ============ -->
+  <div id="pausescreen" class="hidden">
+    <div class="modalbox pausebox">
+      <h2>已暂停</h2>
+      <div class="dhint">按 ESC 继续游戏</div>
+      <button id="pause-resume" class="greenbtn big">继续游戏</button>
+      <button id="pause-settings" class="ghostbtn">设置</button>
+      <button id="pause-quit" class="ghostbtn">返回主菜单</button>
     </div>
   </div>
 

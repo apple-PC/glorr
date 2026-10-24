@@ -38,6 +38,8 @@
       <button id="dash-logout" class="ghost">退出</button>
     </header>
 
+    <div id="offline-note" class="hidden" style="margin:10px 0;padding:10px 14px;border-radius:10px;background:rgba(255,193,7,0.15);border:1px solid rgba(255,193,7,0.45);color:#ffd77a;font-size:13.5px">未连接服务器 · 单机模式:以下为本机 localStorage 账号数据</div>
+
     <section class="cards">
       <div class="card"><b id="st-online">0</b><span>在线玩家</span></div>
       <div class="card"><b id="st-rooms">0</b><span>房间</span></div>
@@ -46,7 +48,7 @@
       <div class="card"><b id="st-uptime">0s</b><span>运行时间</span></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="server-panel">
       <h2>服务器控制</h2>
       <div class="row">
         <span>维护模式<small>开启后拒绝所有新连接</small></span>

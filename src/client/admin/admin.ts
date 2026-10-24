@@ -1,5 +1,6 @@
 // glorr 管理后台逻辑
 import { SERVER_ORIGIN } from '@shared/servers';
+import { START_KIT } from '@shared/constants';
 interface RoomStat {
   name: string;
   players: number;
@@ -323,6 +324,154 @@ $('acc-search').addEventListener('keydown', (e) => {
   if ((e as KeyboardEvent).key === 'Enter') void loadAccounts();
 });
 
-// ---------- 启动:有 token 直接进控制台 ----------
+// ---------- 启动:优先连服务器;连不上则进入本机管理模式 ----------
 
-if (adminToken) enterDash();
+interface LocalUser {
+  name: string;
+  level?: number;
+  xp?: number;
+  kills?: number;
+  inv?: { id: string; rarity: number }[];
+  slotsList?: ({ id: string; rarity: number } | null)[];
+  createdAt?: number;
+}
+
+function localUsers(): Record<string, LocalUser> {
+  try {
+    const obj = JSON.parse(localStorage.getItem('glorr.users') || '{}') as Record<string, LocalUser>;
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch {
+    return {};
+  }
+}
+function saveLocalUsers(u: Record<string, LocalUser>): void {
+  localStorage.setItem('glorr.users', JSON.stringify(u));
+}
+function currentLocalSave(): LocalUser | null {
+  try {
+    return JSON.parse(localStorage.getItem('glorr.save') || 'null') as LocalUser | null;
+  } catch {
+    return null;
+  }
+}
+
+/** 探测游戏服务器是否可达(单机部署时不可达 → 本地模式) */
+async function probeServer(): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 2500);
+    const res = await fetch(`${SERVER_ORIGIN}/healthz`, { signal: ctrl.signal });
+    window.clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function enterLocal(): void {
+  $('loginview').classList.add('hidden');
+  $('dashview').classList.remove('hidden');
+  document.getElementById('offline-note')?.classList.remove('hidden');
+  document.getElementById('server-panel')?.classList.add('hidden');
+  const who = document.getElementById('dash-who');
+  if (who) who.textContent = '本地模式';
+  renderLocal();
+}
+
+function renderLocal(): void {
+  const users = localUsers();
+  const names = Object.keys(users);
+  const cur = localStorage.getItem('glorr.currentAccount') || '';
+  const save = currentLocalSave();
+
+  $('st-online').textContent = '—';
+  $('st-rooms').textContent = '0';
+  $('st-accounts').textContent = String(names.length);
+  $('st-banned').textContent = '0';
+  $('st-uptime').textContent = '本机';
+
+  const rt = document.querySelector('#roomtable tbody');
+  if (rt) rt.innerHTML = '<tr><td colspan="6">单机模式:无服务器房间</td></tr>';
+
+  const tb = document.querySelector('#acctable tbody');
+  if (!tb) return;
+  tb.innerHTML = '';
+  if (names.length === 0) {
+    tb.innerHTML = '<tr><td colspan="9">本机还没有账号(游玩端 /account 注册后会出现在这里)</td></tr>';
+  }
+  for (const name of names) {
+    const u = users[name];
+    const isCur = name === cur;
+    const char = isCur && save ? save : u;
+    const inv = Array.isArray(char.inv) ? char.inv : [];
+    const slots = Array.isArray(char.slotsList) ? char.slotsList : [];
+    const petalCount = inv.length + slots.filter(Boolean).length;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${name}</td><td>${char.level ?? 1}</td><td>${char.kills ?? 0}</td><td>${petalCount}</td>` +
+      `<td>${isCur ? '<span class="tag admin">当前</span>' : ''}</td>` +
+      `<td><span class="tag ok">本机</span></td>` +
+      `<td>${fmtTime(u.createdAt ?? 0)}</td><td>—</td>`;
+    const td = document.createElement('td');
+    const add = (label: string, cls: string, fn: () => void) => {
+      const b = document.createElement('button');
+      b.className = `actbtn ${cls}`.trim();
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      td.appendChild(b);
+    };
+    add('设为当前', '', () => {
+      localStorage.setItem('glorr.currentAccount', name);
+      localStorage.setItem(
+        'glorr.save',
+        JSON.stringify({
+          level: u.level ?? 1,
+          xp: u.xp ?? 0,
+          kills: u.kills ?? 0,
+          inv: u.inv ?? START_KIT.map((id) => ({ id, rarity: 0 })),
+          slotsList: u.slotsList ?? [],
+        }),
+      );
+      renderLocal();
+    });
+    add('清空存档', 'danger', () => {
+      if (!window.confirm(`清空 ${name} 的存档?`)) return;
+      u.level = 1;
+      u.xp = 0;
+      u.kills = 0;
+      u.inv = START_KIT.map((id) => ({ id, rarity: 0 }));
+      u.slotsList = [];
+      saveLocalUsers(users);
+      if (isCur) localStorage.removeItem('glorr.save');
+      renderLocal();
+    });
+    add('删除', 'danger', () => {
+      if (!window.confirm(`删除本机账号 ${name}?此操作不可恢复!`)) return;
+      delete users[name];
+      saveLocalUsers(users);
+      if (isCur) localStorage.removeItem('glorr.currentAccount');
+      renderLocal();
+    });
+    tr.appendChild(td);
+    tb.appendChild(tr);
+  }
+
+  const logs = $('loglist');
+  if (logs) {
+    logs.innerHTML = '';
+    const li = document.createElement('li');
+    li.textContent = '本地模式 · 未连接服务器,仅展示本机 localStorage 数据';
+    logs.appendChild(li);
+  }
+}
+
+async function boot(): Promise<void> {
+  const online = await probeServer();
+  if (!online) {
+    enterLocal();
+    return;
+  }
+  if (adminToken) enterDash();
+}
+
+void boot();
