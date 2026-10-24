@@ -1,4 +1,5 @@
 // glorr 管理后台逻辑
+import { SERVER_ORIGIN } from '@shared/servers';
 interface RoomStat {
   name: string;
   players: number;
@@ -46,7 +47,8 @@ function apiPath(path: string): string {
 }
 
 function api(path: string, options: RequestInit = {}): Promise<Response> {
-  return fetch(apiPath(path), {
+  // 管理页托管在 GitHub Pages,API 在 Fly,必须走绝对地址 + CORS
+  return fetch(SERVER_ORIGIN + apiPath(path), {
     ...options,
     headers: {
       'content-type': 'application/json',

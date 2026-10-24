@@ -1,8 +1,10 @@
 // glorr 服务器列表配置(设置面板里的 3 个命名服务器)
-// 当前架构:一套部署按 URL ?room= 参数分出 3 个命名服务器,账号数据互通。
-// 默认指向本机(localhost:8080)的三个房间,本机运行 npm start 即可直接玩。
-// 部署到公网后,把三个 url 改成你的域名即可,例如:
-//   wss://glorr.example.com/?room=scarlet
+// 架构:一套部署按 URL ?room= 参数分出 3 个命名服务器,账号数据互通。
+// SERVER_ORIGIN 为公网服务端地址(Fly 提供),三个房间共用,仅 ?room= 不同。
+// 若 Fly 应用名不是 glorr-server,把 SERVER_ORIGIN 改成你的 <app>.fly.dev 即可。
+export const SERVER_ORIGIN = 'https://glorr-server.fly.dev';
+export const SERVER_WS_ORIGIN = SERVER_ORIGIN.replace(/^https:/, 'wss:');
+
 export interface ServerDef {
   id: string;
   name: string;
@@ -11,9 +13,9 @@ export interface ServerDef {
 }
 
 export const SERVERS: ServerDef[] = [
-  { id: 'scarlet', name: 'Scarlet', url: 'ws://localhost:8080/?room=scarlet', note: '主服务器 · 花园' },
-  { id: 'youse', name: 'Youse', url: 'ws://localhost:8080/?room=youse', note: '均衡服务器 · 花园' },
-  { id: 'huaduo', name: 'Huaduo', url: 'ws://localhost:8080/?room=huaduo', note: '花朵服务器 · 花园' },
+  { id: 'scarlet', name: 'Scarlet', url: `${SERVER_WS_ORIGIN}/?room=scarlet`, note: '主服务器 · 花园' },
+  { id: 'youse', name: 'Youse', url: `${SERVER_WS_ORIGIN}/?room=youse`, note: '均衡服务器 · 花园' },
+  { id: 'huaduo', name: 'Huaduo', url: `${SERVER_WS_ORIGIN}/?room=huaduo`, note: '花朵服务器 · 花园' },
 ];
 
 export const DEFAULT_SERVER_ID = SERVERS[0].id;

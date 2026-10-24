@@ -98,7 +98,7 @@ async function ensureConnected(): Promise<boolean> {
     const reason = err instanceof Error ? err.message : String(err);
     let hint = `无法连接 ${server.name}:${reason}`;
     if (location.protocol === 'https:' && server.url.startsWith('ws://')) {
-      hint += '。https 页面不能连接 ws:// 本地服务器——本机游玩请直接打开 http://localhost:8080';
+      hint += '。请确认服务器地址已配置为 wss:// 公网域名';
     }
     ui.accountMsg(hint);
     return false;
@@ -166,7 +166,7 @@ function showAccountScreen(): void {
 /** 服务器可用性提示(提前说明,避免点了才知道连不上) */
 function serverNote(server: { name: string; url: string }): string {
   if (location.protocol === 'https:' && server.url.startsWith('ws://')) {
-    return '当前页面是 https,无法连接本机 ws:// 服务器。本机游玩请直接打开 http://localhost:8080;公网游玩需把服务器地址配成 wss:// 域名。';
+    return '';
   }
   return '';
 }

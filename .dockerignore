@@ -1,5 +1,7 @@
 node_modules
 dist
+docs
+data
 .git
 *.log
 .DS_Store

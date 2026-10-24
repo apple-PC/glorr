@@ -1,5 +1,7 @@
-# Fly.io 一键部署(WebSocket 友好,需先 fly auth login)
-# 部署后把 src/shared/servers.ts 的三个 url 改成 https://<app>.fly.dev/?room=xxx
+# Fly.io 部署配置(WebSocket 友好)
+# 部署步骤见对话中的分步指南。
+# 应用名 glorr-server → 公网地址 https://glorr-server.fly.dev
+# 若改了 app 名,记得同步改 src/shared/servers.ts 里的 SERVER_ORIGIN。
 app = "glorr-server"
 primary_region = "hkg"
 
@@ -12,9 +14,10 @@ primary_region = "hkg"
 [http_service]
   internal_port = 8080
   force_https = true
+  # 保持常驻,不休眠(免费额度内),避免玩家进入时等待冷启动
   auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   size = "shared-cpu-1x"

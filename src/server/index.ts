@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { Room } from './room';
-import { AccountStore, type PublicAccount } from './accounts';
+import { createAccountStore, type AccountStore, type PublicAccount } from './accounts';
 
 const PORT = Number(process.env.PORT || 8080);
 const ADMIN_PORT = process.env.ADMIN_PORT ? Number(process.env.ADMIN_PORT) : null;
@@ -12,7 +12,7 @@ const CLIENT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const ADMIN_DIR = path.join(CLIENT_DIR, 'admin');
 const MAX_ROOMS = 12;
 
-const accounts = new AccountStore();
+const accounts = await createAccountStore();
 const rooms = new Map<string, Room>();
 
 let maintenance = false;
@@ -72,6 +72,9 @@ function sendJson(res: http.ServerResponse, code: number, data: unknown): void {
   res.writeHead(code, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'content-type, authorization',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
   });
   res.end(body);
 }
@@ -303,8 +306,29 @@ async function handleAdminApi(req: http.IncomingMessage, res: http.ServerRespons
 
 // ---------- HTTP 服务 ----------
 
+const CORS_HEADERS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'content-type, authorization',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+};
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+  // 健康检查(Fly HEALTHCHECK 探测用)
+  if (url.pathname === '/healthz') {
+    res.writeHead(200, { ...CORS_HEADERS, 'content-type': 'text/plain; charset=utf-8' });
+    res.end('ok');
+    return;
+  }
+
+  // 跨域预检(Pages 上的管理后台调用 Fly API 需要)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
+
   if (url.pathname.startsWith('/api/')) {
     void handleAdminApi(req, res, url);
     return;
