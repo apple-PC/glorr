@@ -3,7 +3,7 @@ import { DROP_DESPAWN, RARITY_COLORS, RINGS, WORLD } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
-import type { Net } from '@client/net';
+import type { GameConn } from '@client/net';
 import { drawBar, drawFlower, drawMob, drawPetal } from '@client/sprites';
 import { clamp, hash2, lerp, smoothstep, TAU } from '@shared/math';
 
@@ -49,7 +49,7 @@ export class Renderer {
     ctx: CanvasRenderingContext2D,
     dpr: number,
     camera: Camera,
-    net: Net,
+    net: GameConn,
     self: SelfView,
     time: number,
     particles: { draw: (c: CanvasRenderingContext2D) => void },
@@ -157,7 +157,7 @@ export class Renderer {
 
   // ---------- 实体 ----------
 
-  private drawEntities(ctx: CanvasRenderingContext2D, cam: Camera, net: Net, self: SelfView, time: number): void {
+  private drawEntities(ctx: CanvasRenderingContext2D, cam: Camera, net: GameConn, self: SelfView, time: number): void {
     // 蛛网(最底层)
     for (const e of net.ents.values()) {
       if (e.kind !== 'w') continue;

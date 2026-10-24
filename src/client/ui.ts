@@ -2,7 +2,7 @@
 import { CRAFT_INPUT, CRAFT_SUCCESS, ETERNAL, MAX_SLOTS, RARITY_COLORS, WORLD, rarityName } from '@shared/constants';
 import { getPetal } from '@shared/data/petals';
 import { DEFAULT_SERVER_ID, SERVERS } from '@shared/servers';
-import type { Net, SelfState } from '@client/net';
+import type { GameConn, SelfState } from '@client/net';
 import { drawFlower, drawPetalIcon } from '@client/sprites';
 import { drawMinimap } from '@client/minimap';
 import { TAU } from '@shared/math';
@@ -57,7 +57,7 @@ export class Ui {
   private menuSoundBtn = document.getElementById('menusoundbtn')!;
 
   constructor(
-    private net: Net,
+    private net: GameConn,
     private cb: UiCallbacks,
   ) {
     this.buildEquipSlots();

@@ -29,6 +29,7 @@ export default defineConfig({
       input: {
         index: fileURLToPath(new URL('./src/client/index.html', import.meta.url)),
         admin: fileURLToPath(new URL('./src/client/admin/index.html', import.meta.url)),
+        account: fileURLToPath(new URL('./src/client/account/index.html', import.meta.url)),
       },
     },
   },

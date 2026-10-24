@@ -6,7 +6,8 @@ import { TAU } from '@shared/math';
 import { DEFAULT_SERVER_ID, SERVERS, getServer } from '@shared/servers';
 import { Camera } from '@client/camera';
 import { Input } from '@client/input';
-import { Net } from '@client/net';
+import { Net, type GameConn } from '@client/net';
+import { LocalSim } from '@client/localSim';
 import { Particles } from '@client/particles';
 import { Renderer } from '@client/render';
 import { Sfx } from '@client/audio';
@@ -17,7 +18,10 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 
-const net = new Net();
+const SOLO = !new URLSearchParams(location.search).has('online');
+// 默认单机:模拟在浏览器内跑,无需服务器即可 Play;带 ?online 时切回联机模式。
+const net: GameConn = SOLO ? new LocalSim() : new Net();
+if (SOLO) (window as unknown as { __glorr?: GameConn }).__glorr = net;
 const sfx = new Sfx();
 const particles = new Particles();
 const camera = new Camera(window.innerWidth, window.innerHeight);
@@ -56,6 +60,7 @@ let listAcc = 0;
 let lastHitSfx = 0;
 let reconnectAttempts = 0;
 let reconnectTimer = 0;
+let lastSaveAt = 0;
 
 const ui = new Ui(net, {
   onEquip: (uid, slot) => net.send({ t: 'equip', uid, slot }),
@@ -88,6 +93,7 @@ const ui = new Ui(net, {
 
 /** 确保已连接到当前服务器;失败时在账号页显示可操作的错误 */
 async function ensureConnected(): Promise<boolean> {
+  if (SOLO) return true;
   if (net.connected) return true;
   const server = getServer(currentServerId) ?? SERVERS[0];
   ui.accountMsg(`正在连接 ${server.name}…`);
@@ -198,7 +204,10 @@ net.onYou = (s) => {
   const prev = net.self;
   reconnectAttempts = 0; // 成功拿到状态即视为重连完成
   ui.setSelf(s);
-  saveCollection(s.inv);
+  if (performance.now() - lastSaveAt > 1500) {
+    lastSaveAt = performance.now();
+    saveCollection(s.inv);
+  }
   const selfEnt = net.selfEnt();
   const justSpawned = selfEnt && (!prev || prev.dead) && !s.dead;
   if (justSpawned && selfEnt) {
@@ -333,6 +342,20 @@ window.addEventListener('resize', () => {
 });
 
 async function bootstrap(): Promise<void> {
+  if (SOLO) {
+    const nm = localStorage.getItem('glorr.currentAccount');
+    account = { name: nm || '游客', level: 1, kills: 0, admin: false };
+    try {
+      const d = JSON.parse(localStorage.getItem('glorr.save') || '{}') as { level?: number; kills?: number };
+      account.level = d.level ?? 1;
+      account.kills = d.kills ?? 0;
+    } catch {
+      /* ignore */
+    }
+    sfx.ensure();
+    enterMenu();
+    return;
+  }
   const saved = localStorage.getItem('glorr.server');
   if (saved && SERVERS.some((s) => s.id === saved)) currentServerId = saved;
   const server = getServer(currentServerId) ?? SERVERS[0];
@@ -392,8 +415,14 @@ gardenBtn.addEventListener('click', () => {
 });
 
 async function play(): Promise<void> {
-  const server = getServer(currentServerId) ?? SERVERS[0];
   sfx.ensure();
+  if (SOLO) {
+    running = true;
+    ui.hideMenu();
+    menuBg.stop();
+    return;
+  }
+  const server = getServer(currentServerId) ?? SERVERS[0];
   gardenBtn.disabled = true;
   gardenBtn.textContent = '连接中…';
   try {
@@ -413,6 +442,7 @@ async function play(): Promise<void> {
 }
 
 async function switchServer(id: string): Promise<void> {
+  if (SOLO) return;
   const server = getServer(id);
   if (!server || id === currentServerId) return;
   switching = true;
@@ -482,7 +512,26 @@ function frame(): void {
     net.send({ t: 'in', x: dx, y: dy });
   }
 
-  if (s && !s.dead) {
+  if (SOLO) {
+    // 单机:位置以 LocalSim 权威为准,渲染直接跟随
+    const se = selfEnt;
+    if (se) {
+      self.x = se.x;
+      self.y = se.y;
+      self.ang = se.ang ?? self.ang;
+      camera.follow(se.x, se.y, dt);
+    }
+    if (s && !s.dead) {
+      const rot = rotationSpeed(s.slotList);
+      for (let i = 0; i < s.slotList.length; i++) {
+        if (!s.slotList[i]) continue;
+        self.slotAngles[i] = (self.slotAngles[i] + rot * dt) % TAU;
+      }
+      self.hpPct = s.maxHp > 0 ? s.hp / s.maxHp : 0;
+      self.invuln = s.invuln > 0;
+      hitFx(s, now);
+    }
+  } else if (s && !s.dead) {
     const [dx, dy] = chatFocused ? [0, 0] : input.vector(self.x, self.y, camera);
     if (dx !== 0 || dy !== 0) {
       self.ang = Math.atan2(dy, dx);

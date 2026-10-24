@@ -1,9 +1,9 @@
 // glorr 小地图
 import { RINGS } from '@shared/constants';
 import { TAU } from '@shared/math';
-import type { Net } from '@client/net';
+import type { GameConn } from '@client/net';
 
-export function drawMinimap(canvas: HTMLCanvasElement, net: Net, mapRadius: number, safeRadius: number): void {
+export function drawMinimap(canvas: HTMLCanvasElement, net: GameConn, mapRadius: number, safeRadius: number): void {
   const c = canvas.getContext('2d');
   if (!c) return;
   const size = canvas.width;

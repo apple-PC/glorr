@@ -1,0 +1,1 @@
+const t="https://glorr-server.fly.dev",e=t.replace(/^https:/,"wss:"),o=[{id:"scarlet",name:"Scarlet",url:`${e}/?room=scarlet`,note:"主服务器 · 花园"},{id:"youse",name:"Youse",url:`${e}/?room=youse`,note:"均衡服务器 · 花园"},{id:"huaduo",name:"Huaduo",url:`${e}/?room=huaduo`,note:"花朵服务器 · 花园"}],a=o[0].id;function n(r){return o.find(s=>s.id===r)}export{a as D,t as S,o as a,n as g};

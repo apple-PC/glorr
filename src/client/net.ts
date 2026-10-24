@@ -52,7 +52,38 @@ export interface OtherInfo {
   loadout: [string, number][];
 }
 
-export class Net {
+// 游戏连接抽象:联机(Net)与单机(LocalSim)共用同一公共表面,渲染/UI 据此解耦
+export interface GameConn {
+  connected: boolean;
+  readonly solo: boolean;
+  selfId: number;
+  self: SelfState | null;
+  ents: Map<number, EntState>;
+  othersLoadout: Map<number, [string, number][]>;
+  othersInfo: Map<number, OtherInfo>;
+  latency: number;
+  onWelcome: (() => void) | null;
+  onYou: ((s: SelfState) => void) | null;
+  onEv: ((k: EvKind, v?: number) => void) | null;
+  onEntGone: ((e: EntState) => void) | null;
+  onClose: (() => void) | null;
+  onChat: ((from: string, text: string) => void) | null;
+  onAuthOk: ((info: { token: string; name: string; level: number; kills: number; admin: boolean }) => void) | null;
+  onAuthErr: ((reason: string) => void) | null;
+  connect(url: string, token?: string): Promise<void>;
+  register(name: string, password: string): void;
+  login(name: string, password: string): void;
+  whoami(token: string): void;
+  join(token: string): void;
+  send(msg: ClientMsg): void;
+  close(): void;
+  tick(dt: number): void;
+  renderPos(e: EntState): [number, number];
+  selfEnt(): EntState | undefined;
+}
+
+export class Net implements GameConn {
+  readonly solo = false;
   ws: WebSocket | null = null;
   connected = false;
   selfId = 0;
