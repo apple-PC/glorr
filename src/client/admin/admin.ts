@@ -465,6 +465,175 @@ function renderLocal(): void {
   }
 }
 
+// ---------- GitHub 仓库数据(存档) ----------
+
+const GH_TOKEN_KEY = 'glorr.admin.ghToken';
+const GH_REPO_KEY = 'glorr.admin.ghRepo';
+const GH_DIR = 'glorr-saves';
+
+interface GhEntry {
+  name: string;
+  path: string;
+  sha: string;
+}
+
+function ghB64(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function ghB64d(s: string): string {
+  const bin = atob(s.replace(/\s/g, ''));
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(u);
+}
+function ghUrl(repo: string, path: string): string {
+  return `https://api.github.com/repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+function ghHeaders(token: string, json = false): Record<string, string> {
+  const h: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' };
+  if (json) h['content-type'] = 'application/json';
+  return h;
+}
+async function ghList(token: string, repo: string): Promise<GhEntry[]> {
+  const res = await fetch(ghUrl(repo, GH_DIR), { headers: ghHeaders(token) });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`列目录失败(${res.status})`);
+  const arr = (await res.json()) as { name: string; path: string; sha: string; type: string }[];
+  return arr.filter((x) => x.type === 'file' && x.name.endsWith('.json'));
+}
+async function ghRead(token: string, repo: string, path: string): Promise<Record<string, unknown>> {
+  const res = await fetch(ghUrl(repo, path), { headers: ghHeaders(token) });
+  if (!res.ok) throw new Error(`读取失败(${res.status})`);
+  const j = (await res.json()) as { content?: string };
+  if (!j.content) throw new Error('文件无内容');
+  return JSON.parse(ghB64d(j.content)) as Record<string, unknown>;
+}
+async function ghWrite(token: string, repo: string, path: string, obj: unknown, sha?: string): Promise<void> {
+  const body: Record<string, unknown> = { message: `glorr admin: ${path}`, content: ghB64(JSON.stringify(obj, null, 2)) };
+  if (sha) body.sha = sha;
+  const res = await fetch(ghUrl(repo, path), { method: 'PUT', headers: ghHeaders(token, true), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`写入失败(${res.status}) ${await res.text()}`);
+}
+async function ghDelete(token: string, repo: string, path: string, sha: string): Promise<void> {
+  const res = await fetch(ghUrl(repo, path), {
+    method: 'DELETE',
+    headers: ghHeaders(token, true),
+    body: JSON.stringify({ message: `glorr admin delete: ${path}`, sha }),
+  });
+  if (!res.ok) throw new Error(`删除失败(${res.status})`);
+}
+
+function setGhMsg(text: string, kind: 'ok' | 'err' | '' = ''): void {
+  const el = document.getElementById('gh-msg');
+  if (el) {
+    el.textContent = text;
+    el.className = `msg${kind ? ` ${kind}` : ''}`;
+  }
+}
+
+async function loadGh(): Promise<void> {
+  const token = ($('gh-token') as HTMLInputElement).value.trim();
+  const repo = ($('gh-repo') as HTMLInputElement).value.trim() || 'apple-PC/glorr';
+  if (!token) {
+    setGhMsg('请填写 GitHub Token(需 contents 读写权限)', 'err');
+    return;
+  }
+  localStorage.setItem(GH_TOKEN_KEY, token);
+  localStorage.setItem(GH_REPO_KEY, repo);
+  setGhMsg('加载中…');
+  try {
+    const entries = await ghList(token, repo);
+    const tbody = document.querySelector('#ghtable tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7">仓库里还没有存档(游玩端 /account 上传后出现)</td></tr>';
+      setGhMsg('无存档文件');
+      return;
+    }
+    for (const entry of entries) {
+      const data = await ghRead(token, repo, entry.path);
+      const name = String(data.name ?? entry.name.replace(/\.json$/, ''));
+      const lv = Number(data.level ?? 1);
+      const xp = Number(data.xp ?? 0);
+      const kills = Number(data.kills ?? 0);
+      const inv = Array.isArray(data.inv) ? (data.inv as unknown[]) : [];
+      const slots = Array.isArray(data.slotsList) ? (data.slotsList as unknown[]).filter(Boolean) : [];
+      const upd = Number(data.updatedAt ?? 0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${lv}</td><td>${xp}</td><td>${kills}</td><td>${inv.length + slots.length}</td><td>${fmtTime(upd)}</td>`;
+      const td = document.createElement('td');
+      const add = (label: string, cls: string, fn: () => void) => {
+        const b = document.createElement('button');
+        b.className = `actbtn ${cls}`.trim();
+        b.textContent = label;
+        b.addEventListener('click', fn);
+        td.appendChild(b);
+      };
+      add('改等级', '', () => {
+        const v = window.prompt(`设置 ${name} 的等级(1-200)`, String(lv));
+        if (!v) return;
+        const n = Math.max(1, Math.min(200, Math.round(Number(v) || 1)));
+        void (async () => {
+          try {
+            await ghWrite(token, repo, entry.path, { ...data, level: n, updatedAt: Date.now() }, entry.sha);
+            setGhMsg(`已修改 ${name} 等级为 ${n}`, 'ok');
+            await loadGh();
+          } catch (err) {
+            setGhMsg(err instanceof Error ? err.message : String(err), 'err');
+          }
+        })();
+      });
+      add('重置存档', 'danger', () => {
+        if (!window.confirm(`重置 ${name} 的仓库存档?`)) return;
+        void (async () => {
+          try {
+            await ghWrite(
+              token,
+              repo,
+              entry.path,
+              {
+                name,
+                level: 1,
+                xp: 0,
+                kills: 0,
+                inv: START_KIT.map((id) => ({ id, rarity: 0 })),
+                slotsList: [],
+                updatedAt: Date.now(),
+              },
+              entry.sha,
+            );
+            setGhMsg(`已重置 ${name}`, 'ok');
+            await loadGh();
+          } catch (err) {
+            setGhMsg(err instanceof Error ? err.message : String(err), 'err');
+          }
+        })();
+      });
+      add('删除', 'danger', () => {
+        if (!window.confirm(`删除仓库中的 ${name} 存档?此操作不可恢复!`)) return;
+        void (async () => {
+          try {
+            await ghDelete(token, repo, entry.path, entry.sha);
+            setGhMsg(`已删除 ${name}`, 'ok');
+            await loadGh();
+          } catch (err) {
+            setGhMsg(err instanceof Error ? err.message : String(err), 'err');
+          }
+        })();
+      });
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+    setGhMsg(`已加载 ${entries.length} 份存档`, 'ok');
+  } catch (err) {
+    setGhMsg(err instanceof Error ? err.message : String(err), 'err');
+  }
+}
+
 async function boot(): Promise<void> {
   const online = await probeServer();
   if (!online) {
@@ -473,5 +642,11 @@ async function boot(): Promise<void> {
   }
   if (adminToken) enterDash();
 }
+
+const ghTokenEl = document.getElementById('gh-token') as HTMLInputElement | null;
+const ghRepoEl = document.getElementById('gh-repo') as HTMLInputElement | null;
+if (ghTokenEl) ghTokenEl.value = localStorage.getItem(GH_TOKEN_KEY) || '';
+if (ghRepoEl) ghRepoEl.value = localStorage.getItem(GH_REPO_KEY) || 'apple-PC/glorr';
+document.getElementById('gh-load')?.addEventListener('click', () => void loadGh());
 
 void boot();

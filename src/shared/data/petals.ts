@@ -4,8 +4,8 @@ import * as C from '@shared/constants';
 // glorr 花瓣图鉴(数值参考 florr.io 基础花瓣,缩放曲线见 constants)
 export const PETALS: PetalDef[] = [
   {
-    id: 'basic', name: '基础', kind: 'melee', dmg: 10, hp: 25, reload: 0, minRarity: 0,
-    desc: '均衡的入门花瓣,伤害与耐久都够用',
+    id: 'basic', name: '基础', kind: 'melee', dmg: 10, hp: 10, reload: 2.5, minRarity: 0,
+    desc: '均衡的入门花瓣,伤害与耐久都够用(2.5s 冷却)',
   },
   {
     id: 'fast', name: '轻', kind: 'melee', dmg: 4, hp: 12, reload: 0, minRarity: 0,

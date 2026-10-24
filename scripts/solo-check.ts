@@ -208,10 +208,28 @@ async function main(): Promise<void> {
     const slots = await cdp.eval(`document.querySelectorAll('#equiprow .eslot canvas').length`);
     allOk = check('花瓣槽位已渲染', typeof slots === 'number' && slots >= 5, `${slots} 个槽位`) && allOk;
 
-    // ESC 暂停 / 继续
+    // ESC 暂停 / 冻结 / 设置期间冻结 / 继续
+    const mobPosExpr = `(() => { const m=[...window.__glorr.ents.values()].find(e=>e.kind==='m'); return m?[Math.round(m.x*10)/10, Math.round(m.y*10)/10]:null; })()`;
     await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     const pausedOn = await waitFor(cdp, `!document.getElementById('pausescreen').classList.contains('hidden')`, 3000);
     allOk = check('ESC 可暂停', pausedOn === true) && allOk;
+
+    const posBefore = await cdp.eval(mobPosExpr);
+    await new Promise((r) => setTimeout(r, 700));
+    const posAfter = await cdp.eval(mobPosExpr);
+    allOk = check('暂停时模拟冻结(怪物不动)', JSON.stringify(posBefore) === JSON.stringify(posAfter), JSON.stringify(posBefore)) && allOk;
+
+    await cdp.eval(`document.getElementById('pause-settings').click()`);
+    const settingsOpen = await cdp.eval(`!document.getElementById('settingsmodal').classList.contains('hidden')`);
+    allOk = check('暂停中可打开设置', settingsOpen === true) && allOk;
+    const posB2 = await cdp.eval(mobPosExpr);
+    await new Promise((r) => setTimeout(r, 700));
+    const posA2 = await cdp.eval(mobPosExpr);
+    allOk = check('设置打开时仍冻结', JSON.stringify(posB2) === JSON.stringify(posA2), JSON.stringify(posB2)) && allOk;
+    await cdp.eval(`document.getElementById('settingsclose').click()`);
+    const backPause = await waitFor(cdp, `!document.getElementById('pausescreen').classList.contains('hidden')`, 2000);
+    allOk = check('关闭设置回到暂停', backPause === true) && allOk;
+
     await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     const pausedOff = await waitFor(cdp, `document.getElementById('pausescreen').classList.contains('hidden')`, 3000);
     allOk = check('ESC 可继续游戏', pausedOff === true) && allOk;

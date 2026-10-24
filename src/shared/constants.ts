@@ -102,8 +102,16 @@ export const DROP_SUPER_CONTRIB = 0.01; // 超级以上怪物放宽
 export const DROP_SUPER_TOP_N = 25;
 
 // ---------- 怪物稀有度属性倍率(近似指数 2.6^i) ----------
+// 服务端旧用(保留兼容)
 export const MOB_STAT_MULT = [1, 2.6, 6.8, 17.6, 45.9, 119, 310, 806, 2096];
 export const MOB_XP_MULT = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+// 依据 florr wiki:生物血量/伤害/护甲按稀有度分别缩放
+// 血量:1 → 3.75 → 13.5 → 54 → 324 → 3159 → 145800 → 4374000 → 26244000
+export const MOB_HP_MULT = [1, 3.75, 13.5, 54, 324, 3159, 145800, 4374000, 26244000];
+// 伤害:每级 ×3
+export const MOB_DMG_MULT = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
+// 护甲:每级 ×3(普通大多 0.8 起)
+export const MOB_ARMOR_MULT = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
 export const MOB_MAX_DROP_RARITY = 6; // 怪物掉落花瓣最高究极
 
 // ---------- 花园环形分区 ----------
@@ -141,4 +149,4 @@ export function isPvp(x: number, y: number): boolean {
 // ---------- 观战/服务端基础 ----------
 export const ROOM_CAPACITY = 60;
 export const SNAPSHOT_RANGE = 2600; // 实体同步半径
-export const START_KIT = ['basic', 'basic', 'basic', 'basic', 'basic'];
+export const START_KIT = ['basic', 'basic', 'basic', 'basic', 'rose'];

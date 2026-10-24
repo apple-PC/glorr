@@ -45,9 +45,9 @@ function weightedPick(w: number[]): number {
 
 /** 花瓣破碎后的再生冷却(秒);远程按装填时间,近战/治疗/增益给固定冷却 */
 function reloadFor(def: PetalDef): number {
+  // florr:花瓣破碎后按冷却再生,基础花瓣约 2.5s
   if (def.reload > 0) return def.reload;
-  if (def.kind === 'heal' || def.kind === 'buff') return 3;
-  return 2;
+  return 2.5;
 }
 
 interface SlotState {
@@ -345,7 +345,7 @@ export class LocalSim implements GameConn {
     const now = this.time;
     for (const m of this.mobs.values()) {
       const def = getMob(m.defId);
-      const mult = C.MOB_STAT_MULT[m.rarity] ?? 1;
+      const dmgMult = C.MOB_DMG_MULT[m.rarity] ?? 1;
       let hasTarget = false;
       if (def.behavior === 'aggressive') {
         if (!this.dead && dist(m.x, m.y, this.x, this.y) <= def.aggro) hasTarget = true;
@@ -383,7 +383,7 @@ export class LocalSim implements GameConn {
       if (!this.dead && dist(m.x, m.y, this.x, this.y) < def.radius + C.PLAYER.radius * 0.8) {
         if (m.attackCd <= 0) {
           m.attackCd = 0.9;
-          this.damagePlayer(def.dmg * mult, m.x, m.y);
+          this.damagePlayer(def.dmg * dmgMult, m.x, m.y);
         }
       }
 
@@ -399,7 +399,7 @@ export class LocalSim implements GameConn {
             Math.cos(a) * def.ranged.speed,
             Math.sin(a) * def.ranged.speed,
             'sting',
-            def.ranged.dmg * mult,
+            def.ranged.dmg * dmgMult,
             def.ranged.range,
             true,
           );
@@ -421,16 +421,16 @@ export class LocalSim implements GameConn {
       const y = Math.sin(a) * r;
       const speciesId = ring.species[Math.floor(Math.random() * ring.species.length)];
       const rarity = weightedPick(ring.rarityW);
+      const hpMult = C.MOB_HP_MULT[rarity] ?? 1;
       const def = getMob(speciesId);
-      const mult = C.MOB_STAT_MULT[rarity] ?? 1;
       const id = this.nextId++;
       this.mobs.set(id, {
         id,
         defId: speciesId,
         species: SPECIES_INDEX.get(speciesId) ?? 0,
         rarity,
-        hp: def.hp * mult,
-        maxHp: def.hp * mult,
+        hp: def.hp * hpMult,
+        maxHp: def.hp * hpMult,
         x,
         y,
         ang: Math.random() * TAU,
@@ -446,7 +446,8 @@ export class LocalSim implements GameConn {
 
   private damageMob(m: MobEnt, dmg: number): void {
     const def = getMob(m.defId);
-    const real = Math.max(1, dmg - (def.armor ?? 0));
+    const armor = (def.armor ?? 0) * (C.MOB_ARMOR_MULT[m.rarity] ?? 1);
+    const real = Math.max(1, dmg - armor);
     m.hp -= real;
     if (def.behavior === 'neutral') {
       m.retaliateUntil = this.time + 6;
@@ -534,7 +535,7 @@ export class LocalSim implements GameConn {
             );
           }
         }
-      } else if (def.kind === 'melee') {
+      } else if (def.kind === 'melee' || (def.kind === 'heal' && (def.onHitHeal ?? 0) > 0)) {
         if (this.dead || s.hitCd > 0) continue;
         for (const m of this.mobs.values()) {
           const md = getMob(m.defId);

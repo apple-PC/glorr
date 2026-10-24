@@ -64,6 +64,22 @@
       </div>
     </section>
 
+    <section class="panel" id="github-panel">
+      <h2>GitHub 仓库数据(存档)</h2>
+      <div class="row">
+        <input id="gh-token" type="password" placeholder="GitHub Token(需 contents 读写权限,仅存本机)" />
+        <input id="gh-repo" placeholder="owner/repo(默认 apple-PC/glorr)" />
+        <button id="gh-load" class="primary">加载</button>
+      </div>
+      <div id="gh-msg" class="msg"></div>
+      <div class="tablewrap">
+        <table class="tbl" id="ghtable">
+          <thead><tr><th>玩家</th><th>等级</th><th>经验</th><th>击杀</th><th>花瓣</th><th>更新时间</th><th>操作</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel">
       <h2>玩家账号管理</h2>
       <div class="row">

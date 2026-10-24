@@ -428,8 +428,15 @@ function quitToMenu(): void {
 }
 
 document.getElementById('pause-resume')?.addEventListener('click', () => setPaused(false));
-document.getElementById('pause-settings')?.addEventListener('click', () => ui.openSettings());
+document.getElementById('pause-settings')?.addEventListener('click', () => {
+  // 从暂停进设置:保持冻结,隐藏暂停面板避免遮挡;关闭设置后再回到暂停
+  pauseScreen.classList.add('hidden');
+  ui.openSettings();
+});
 document.getElementById('pause-quit')?.addEventListener('click', () => quitToMenu());
+document.getElementById('settingsclose')?.addEventListener('click', () => {
+  if (paused) pauseScreen.classList.remove('hidden');
+});
 
 gardenBtn.addEventListener('click', () => {
   if (!readyBtn.disabled) {
@@ -501,10 +508,18 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const craftOpen = !document.getElementById('craftmodal')!.classList.contains('hidden');
     const settingsOpen = !document.getElementById('settingsmodal')!.classList.contains('hidden');
-    ui.closeCraft();
-    ui.hideSettings();
     (document.activeElement as HTMLElement | null)?.blur();
-    if (running && !craftOpen && !settingsOpen) setPaused(!paused);
+    if (craftOpen) {
+      ui.closeCraft();
+      return;
+    }
+    if (settingsOpen) {
+      // 关闭设置:若处于暂停则回到暂停面板(保持冻结)
+      ui.hideSettings();
+      if (paused) pauseScreen.classList.remove('hidden');
+      return;
+    }
+    if (running) setPaused(!paused);
     return;
   }
   if (ui.isChatFocused()) return;
