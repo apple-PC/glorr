@@ -1,7 +1,7 @@
 // glorr 单机本地模拟:在浏览器内跑完整权威模拟(怪物 AI / 花瓣轨道 / 碰撞 / 掉落 / 合成 / 升级 / 背包)
 // 实现与 Net 相同的 GameConn 公共接口,渲染层与 UI 无需感知是单机还是联机。
 import * as C from '@shared/constants';
-import { blocked, pushOut, randomSpawnPoint } from '@shared/garden';
+import { blocked, randomSpawnPoint, PLAYER_SPAWN } from '@shared/garden';
 import { getMob, SPECIES_INDEX } from '@shared/data/mobs';
 import {
   getPetal,
@@ -167,6 +167,8 @@ export class LocalSim implements GameConn {
 
   constructor() {
     this.load();
+    this.x = PLAYER_SPAWN[0];
+    this.y = PLAYER_SPAWN[1];
     this.updateSlots();
     this.autoEquip();
     this.maintainMobs();
@@ -284,14 +286,15 @@ export class LocalSim implements GameConn {
       this.vx -= this.vx * fk;
       this.vy -= this.vy * fk;
     }
+    const ox = this.x;
+    const oy = this.y;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    const [nx, ny] = pushOut(this.x, this.y, C.PLAYER.radius);
-    if (nx !== this.x || ny !== this.y) {
-      this.x = nx;
-      this.y = ny;
-      this.vx *= 0.55;
-      this.vy *= 0.55;
+    if (blocked(this.x, this.y, C.PLAYER.radius)) {
+      this.x = ox;
+      this.y = oy;
+      this.vx *= 0.2;
+      this.vy *= 0.2;
     }
     // 治疗类花瓣持续回血
     let heal = 0;
@@ -344,10 +347,8 @@ export class LocalSim implements GameConn {
   }
 
   private doRespawn(): void {
-    const a = Math.random() * TAU;
-    const r = Math.random() * C.WORLD.safeRadius * 0.5;
-    this.x = Math.cos(a) * r;
-    this.y = Math.sin(a) * r;
+    this.x = PLAYER_SPAWN[0];
+    this.y = PLAYER_SPAWN[1];
     this.vx = 0;
     this.vy = 0;
     this.ang = -Math.PI / 2;
@@ -390,6 +391,8 @@ export class LocalSim implements GameConn {
       m.target = hasTarget ? this.selfId : 0;
 
       if (behavior !== 'static' && def.speed > 0) {
+        const ox = m.x;
+        const oy = m.y;
         if (m.target) {
           const a = Math.atan2(this.y - m.y, this.x - m.x);
           const d = dist(m.x, m.y, this.x, this.y);
@@ -422,9 +425,11 @@ export class LocalSim implements GameConn {
           m.x += Math.cos(m.wanderAng) * def.speed * 0.35 * dt;
           m.y += Math.sin(m.wanderAng) * def.speed * 0.35 * dt;
         }
-        const [px, py] = pushOut(m.x, m.y, Math.min(26, def.radius));
-        m.x = px;
-        m.y = py;
+        if (blocked(m.x, m.y, Math.min(26, def.radius))) {
+          m.x = ox;
+          m.y = oy;
+          m.wanderT = 0;
+        }
       }
 
       // 接触:花瓣挡在中间时只消耗花瓣,不直接咬到花心

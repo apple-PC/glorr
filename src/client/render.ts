@@ -1,12 +1,13 @@
 // glorr 世界渲染:背景 / 实体 / 粒子 / 浮动文字
 import { DROP_DESPAWN, RARITY_COLORS } from '@shared/constants';
-import { GARDEN_HALF, SAFE_RADIUS, WALLS, ZONES } from '@shared/garden';
+import { GARDEN_HALF, PORTALS } from '@shared/garden';
+import { getGardenImage, getMazeCanvas } from '@client/mazeImage';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
 import type { GameConn } from '@client/net';
 import { drawDirectionArrow, drawFlower, drawMob, drawPetal } from '@client/sprites';
-import { clamp, hash2, lerp, smoothstep, TAU } from '@shared/math';
+import { clamp, lerp, smoothstep, TAU } from '@shared/math';
 
 export interface SelfView {
   x: number;
@@ -25,14 +26,8 @@ export interface FloatText {
   color: string;
 }
 
-const ZONE_TINT: Record<string, string> = {
-  tr: 'rgba(255,220,120,0.05)',
-  br: 'rgba(120,180,255,0.05)',
-  bl: 'rgba(255,140,80,0.05)',
-  blroom: 'rgba(255,200,80,0.04)',
-  myth: 'rgba(160,120,255,0.06)',
-  spiral: 'rgba(220,120,255,0.07)',
-};
+const ZONE_TINT: Record<string, string> = {};
+void ZONE_TINT;
 
 export class Renderer {
   private mobAngles = new Map<number, number>();
@@ -67,7 +62,7 @@ export class Renderer {
     const z = camera.zoom;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#4a6b3f';
+    ctx.fillStyle = '#1b2a20';
     ctx.fillRect(0, 0, w, h);
 
     // 世界变换
@@ -94,111 +89,31 @@ export class Renderer {
   // ---------- 背景 ----------
 
   private drawBackground(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number): void {
-    const z = cam.zoom;
-    const halfW = w / 2 / z;
-    const halfH = h / 2 / z;
-    const x0 = cam.x - halfW;
-    const x1 = cam.x + halfW;
-    const y0 = cam.y - halfH;
-    const y1 = cam.y + halfH;
     const H = GARDEN_HALF;
-
-    // 世界底色
-    ctx.fillStyle = '#3f9e57';
-    ctx.fillRect(-H, -H, H * 2, H * 2);
-
-    // 同心方形分区色带
-    const bands: [number, string][] = [
-      [1650, 'rgba(255,255,255,0.03)'],
-      [2450, 'rgba(0,0,0,0.03)'],
-      [H, 'rgba(0,0,0,0.06)'],
-    ];
-    for (const [r, col] of bands) {
-      ctx.fillStyle = col;
-      ctx.fillRect(-r, -r, r * 2, r * 2);
+    // 新版花园迷宫(白色可行走/黑色墙)
+    const garden = getGardenImage();
+    if (garden) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(garden, -H, -H, H * 2, H * 2);
+    } else {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(getMazeCanvas(), -H, -H, H * 2, H * 2);
+      ctx.imageSmoothingEnabled = true;
     }
 
-    // 特殊房间淡色
-    for (const zone of ZONES) {
-      const tint = ZONE_TINT[zone.id];
-      if (!tint) continue;
-      ctx.fillStyle = tint;
-      ctx.fillRect(zone.rect.x0, zone.rect.y0, zone.rect.x1 - zone.rect.x0, zone.rect.y1 - zone.rect.y0);
-    }
-
-    // 中央环形湖 + 中心小岛
-    ctx.fillStyle = '#3f7fd0';
-    ctx.beginPath();
-    ctx.arc(0, 0, 300, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = '#3f9e57';
-    ctx.beginPath();
-    ctx.arc(0, 0, 190, 0, TAU);
-    ctx.fill();
-
-    // 世界外(粗边框)
-    ctx.strokeStyle = '#22331c';
-    ctx.lineWidth = 600;
-    ctx.strokeRect(-H - 300, -H - 300, (H + 300) * 2, (H + 300) * 2);
-
-    // 土墙/障碍
-    for (const wl of WALLS) {
-      if (wl.x1 < x0 - 80 || wl.x0 > x1 + 80 || wl.y1 < y0 - 80 || wl.y0 > y1 + 80) continue;
-      const ww = wl.x1 - wl.x0;
-      const wh = wl.y1 - wl.y0;
-      ctx.fillStyle = '#6b4a2f';
-      ctx.fillRect(wl.x0, wl.y0, ww, wh);
-      ctx.strokeStyle = '#4a3220';
+    // 传送门/出生点(绿色圆点)
+    for (const p of PORTALS) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 18, 0, TAU);
+      ctx.fillStyle = '#7ee07e';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 4;
-      ctx.strokeRect(wl.x0, wl.y0, ww, wh);
-      // 土块斑点
-      ctx.fillStyle = 'rgba(0,0,0,0.13)';
-      for (let i = 0; i < 4; i++) {
-        const hx = wl.x0 + hash2(i + 1, wl.x0 | 0) * ww;
-        const hy = wl.y0 + hash2(wl.y0 | 0, i + 1) * wh;
-        ctx.beginPath();
-        ctx.arc(hx, hy, Math.min(7, Math.max(3, ww * 0.12)), 0, TAU);
-        ctx.fill();
-      }
+      ctx.stroke();
     }
-
-    // 安全区虚线方框
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.32)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([16, 12]);
-    ctx.strokeRect(-SAFE_RADIUS, -SAFE_RADIUS, SAFE_RADIUS * 2, SAFE_RADIUS * 2);
-    ctx.restore();
-
-    // 背景装饰:深色三角形(花园风格,按格子确定性生成)
-    const cell = 170;
-    const cx0 = Math.floor(x0 / cell);
-    const cx1 = Math.floor(x1 / cell);
-    const cy0 = Math.floor(y0 / cell);
-    const cy1 = Math.floor(y1 / cell);
-    ctx.fillStyle = 'rgba(20,80,35,0.10)';
-    for (let gx = cx0; gx <= cx1; gx++) {
-      for (let gy = cy0; gy <= cy1; gy++) {
-        const n = 2 + Math.floor(hash2(gx, gy) * 3);
-        for (let i = 0; i < n; i++) {
-          const px = gx * cell + hash2(gx * 3 + i, gy) * cell;
-          const py = gy * cell + hash2(gx, gy * 3 + i) * cell;
-          if (Math.abs(px) > H - 20 || Math.abs(py) > H - 20) continue;
-          const s = 16 + hash2(px | 0, py | 0) * 22;
-          const rot = hash2(gx + i, gy - i) * TAU;
-          ctx.save();
-          ctx.translate(px, py);
-          ctx.rotate(rot);
-          ctx.beginPath();
-          ctx.moveTo(0, -s);
-          ctx.lineTo(s * 0.87, s * 0.5);
-          ctx.lineTo(-s * 0.87, s * 0.5);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
-      }
-    }
+    void cam;
+    void w;
+    void h;
   }
 
   // ---------- 实体 ----------

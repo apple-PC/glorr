@@ -1,210 +1,147 @@
-// glorr 方形花园地图:边界墙、中央环形湖城墙、四角特殊房间、分区刷怪
-import { hash2 } from '@shared/math';
+// glorr 新版花园:直接使用 wiki 新花园地图烘焙出的迷宫网格
+// 白色=可行走,黑色=墙;绿色点=出生点/传送门
+import { GRID_CELL, GRID_H, GRID_W, MAP_PX, ROWS, SPAWN_PX } from '@shared/gardenGrid';
 
 export const GARDEN_HALF = 3200;
+/** 世界单位 / 地图像素 */
+export const WORLD_PER_PX = GARDEN_HALF / (MAP_PX / 2);
+const PX_PER_WORLD = 1 / WORLD_PER_PX;
 
-export interface GRect {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
+export function worldToPx(x: number): number {
+  return x * PX_PER_WORLD + MAP_PX / 2;
+}
+export function pxToWorld(px: number): number {
+  return (px - MAP_PX / 2) * WORLD_PER_PX;
 }
 
-const H = GARDEN_HALF;
-const T = 90;
-
-function rect(x0: number, y0: number, x1: number, y1: number): GRect {
-  return { x0, y0, x1, y1 };
+function cellWalkable(gx: number, gy: number): boolean {
+  if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return false;
+  return ROWS[gy].charCodeAt(gx) === 49; // '1'
 }
 
-/** 房间四壁,open 指定留缺口的一边 */
-function frame(x0: number, y0: number, x1: number, y1: number, open: 'left' | 'right' | 'top' | 'bottom', t = 80, gap = 180): GRect[] {
-  const out: GRect[] = [];
-  const midX = (x0 + x1) / 2;
-  const midY = (y0 + y1) / 2;
-  // 上
-  if (open === 'top') {
-    out.push(rect(x0, y0, midX - gap / 2, y0 + t), rect(midX + gap / 2, y0, x1, y0 + t));
-  } else out.push(rect(x0, y0, x1, y0 + t));
-  // 下
-  if (open === 'bottom') {
-    out.push(rect(x0, y1 - t, midX - gap / 2, y1), rect(midX + gap / 2, y1 - t, x1, y1));
-  } else out.push(rect(x0, y1 - t, x1, y1));
-  // 左
-  if (open === 'left') {
-    out.push(rect(x0, y0, x0 + t, midY - gap / 2), rect(x0, midY + gap / 2, x0 + t, y1));
-  } else out.push(rect(x0, y0, x0 + t, y1));
-  // 右
-  if (open === 'right') {
-    out.push(rect(x1 - t, y0, x1, midY - gap / 2), rect(x1 - t, midY + gap / 2, x1, y1));
-  } else out.push(rect(x1 - t, y0, x1, y1));
-  return out;
+export function walkablePx(px: number, py: number): boolean {
+  if (px < 0 || py < 0 || px >= MAP_PX || py >= MAP_PX) return false;
+  return cellWalkable(Math.floor(px / GRID_CELL), Math.floor(py / GRID_CELL));
 }
 
-/** 全部障碍/墙体(世界坐标矩形) */
-export const WALLS: GRect[] = [
-  // 世界边界
-  rect(-H, -H, H, -H + T),
-  rect(-H, H - T, H, H),
-  rect(-H, -H, -H + T, H),
-  rect(H - T, -H, H, H),
-];
-
-// 中央环形湖城墙(东西南北各留缺口)
-const CR = 620;
-const CG = 110;
-const CW = 80;
-WALLS.push(
-  rect(-CR, -CR, -CG, -CR + CW),
-  rect(CG, -CR, CR, -CR + CW),
-  rect(-CR, CR - CW, -CG, CR),
-  rect(CG, CR - CW, CR, CR),
-  rect(-CR, -CR, -CR + CW, -CG),
-  rect(-CR, CG, -CR + CW, CR),
-  rect(CR - CW, -CR, CR, -CG),
-  rect(CR - CW, CG, CR, CR),
-);
-
-/**
- * 左上螺旋：用对数螺旋近似几段挡墙
- */
-for (let i = 0; i < 5; i++) {
-  const a0 = i * 1.15;
-  const r0 = 240 + i * 210;
-  const x = -2150 + Math.cos(a0) * r0 * 0.35;
-  const y = 2050 + Math.sin(a0) * r0 * 0.35;
-  WALLS.push(rect(x - 150, y - 45, x + 150, y + 45));
+export function walkable(x: number, y: number): boolean {
+  return walkablePx(worldToPx(x), worldToPx(y));
 }
 
-// 四角房间
-WALLS.push(...frame(1750, -2450, 2450, -1750, 'left'));   // 右下：蜜蜂
-WALLS.push(...frame(1750, 1750, 2450, 2450, 'bottom'));   // 右上：瓢虫
-WALLS.push(...frame(-2450, -2450, -1750, -1750, 'right')); // 左下：蒲公英
-WALLS.push(...frame(-2450, 1750, -1750, 2450, 'bottom')); // 左上：究极
-// 左下到左上的长走廊(两列墙)
-WALLS.push(rect(-2450, -700, -2370, 1500), rect(-1830, -700, -1750, 1500));
+/** 圆形与墙格碰撞 */
+export function blocked(x: number, y: number, r: number): boolean {
+  const px = worldToPx(x);
+  const py = worldToPx(y);
+  const rp = r * PX_PER_WORLD;
+  const gx0 = Math.floor((px - rp) / GRID_CELL);
+  const gx1 = Math.floor((px + rp) / GRID_CELL);
+  const gy0 = Math.floor((py - rp) / GRID_CELL);
+  const gy1 = Math.floor((py + rp) / GRID_CELL);
+  for (let gy = gy0; gy <= gy1; gy++) {
+    for (let gx = gx0; gx <= gx1; gx++) {
+      if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return true;
+      if (cellWalkable(gx, gy)) continue;
+      const x0 = gx * GRID_CELL;
+      const y0 = gy * GRID_CELL;
+      const cx = Math.max(x0, Math.min(px, x0 + GRID_CELL));
+      const cy = Math.max(y0, Math.min(py, y0 + GRID_CELL));
+      const dx = px - cx;
+      const dy = py - cy;
+      if (dx * dx + dy * dy < rp * rp) return true;
+    }
+  }
+  return false;
+}
 
-// 中圈散布的石墙
-const SCATTER: [number, number, number, number][] = [
-  [-1500, -400, -1150, -330],
-  [-700, 900, -300, 970],
-  [400, -1200, 850, -1130],
-  [1100, 300, 1500, 370],
-  [-1200, 1500, -900, 1700],
-  [900, 1400, 1300, 1470],
-  [200, 2200, 600, 2270],
-  [-2000, 300, -1700, 420],
-  [1600, 900, 2000, 970],
-  [-300, -2300, 200, -2230],
-];
-for (const [x0, y0, x1, y1] of SCATTER) WALLS.push(rect(x0, y0, x1, y1));
+/** 把圆形推出墙体:搜索附近可行走点 */
+export function pushOut(x: number, y: number, r: number): [number, number] {
+  if (!blocked(x, y, r)) return [x, y];
+  const step = GRID_CELL * WORLD_PER_PX;
+  for (let ring = 1; ring <= 8; ring++) {
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const nx = x + Math.cos(a) * step * ring;
+      const ny = y + Math.sin(a) * step * ring;
+      if (!blocked(nx, ny, r)) return [nx, ny];
+    }
+  }
+  return [x, y];
+}
+
+/** 绿色点聚类为传送门/出生点 */
+export interface Portal {
+  x: number;
+  y: number;
+}
+export const PORTALS: Portal[] = (() => {
+  const clusters: { sx: number; sy: number; n: number }[] = [];
+  for (const [px, py] of SPAWN_PX) {
+    let c = clusters.find((k) => Math.hypot(k.sx / k.n - px, k.sy / k.n - py) < 14);
+    if (!c) {
+      c = { sx: 0, sy: 0, n: 0 };
+      clusters.push(c);
+    }
+    c.sx += px;
+    c.sy += py;
+    c.n++;
+  }
+  return clusters.map((c) => ({ x: pxToWorld(c.sx / c.n), y: pxToWorld(c.sy / c.n) }));
+})();
+
+/** 出生点:中央环形湖(图中偏下的锯齿环) */
+export const PLAYER_SPAWN: [number, number] = (() => {
+  const tx = pxToWorld(310);
+  const ty = pxToWorld(545);
+  let best = PORTALS[0];
+  let bd = Infinity;
+  for (const p of PORTALS) {
+    const d = Math.hypot(p.x - tx, p.y - ty);
+    if (d < bd) {
+      bd = d;
+      best = p;
+    }
+  }
+  return best ? [best.x, best.y] : [0, 0];
+})();
 
 export interface GardenZone {
   id: string;
   name: string;
-  rect: GRect;
+  px0: number;
+  py0: number;
+  px1: number;
+  py1: number;
   species: string[];
   rarityW: number[];
   weight: number;
 }
 
-/** 分区刷怪表(特殊房间优先,其次内/中/外圈) */
+function zone(
+  id: string,
+  name: string,
+  px0: number,
+  py0: number,
+  px1: number,
+  py1: number,
+  species: string[],
+  rarityW: number[],
+  weight: number,
+): GardenZone {
+  return { id, name, px0, py0, px1, py1, species, rarityW, weight };
+}
+
+/** 分区刷怪(像素坐标,依据 wiki 描述的特殊房间位置) */
 export const ZONES: GardenZone[] = [
-  {
-    id: 'tr', name: '传说瓢虫房', rect: rect(1750, 1750, 2450, 2450),
-    species: ['ladybug'], rarityW: [0, 0, 4, 16, 40, 30, 8, 1], weight: 4,
-  },
-  {
-    id: 'br', name: '传说蜜蜂房', rect: rect(1750, -2450, 2450, -1750),
-    species: ['bee'], rarityW: [0, 0, 4, 16, 40, 30, 8, 1], weight: 4,
-  },
-  {
-    id: 'bl', name: '传奇黄蜂走廊', rect: rect(-2450, -900, -1830, 700),
-    species: ['hornet'], rarityW: [0, 0, 8, 28, 40, 18, 5, 1], weight: 4,
-  },
-  {
-    id: 'blroom', name: '史诗蒲公英房', rect: rect(-2450, -2450, -1750, -1700),
-    species: ['dandelion', 'centipede'], rarityW: [0, 4, 26, 45, 20, 5], weight: 4,
-  },
-  {
-    id: 'myth', name: '神话长廊', rect: rect(-2450, 700, -1750, 1750),
-    species: ['spider', 'bumblebee', 'hornet', 'centipede'], rarityW: [0, 0, 0, 8, 24, 38, 22, 6, 2], weight: 3,
-  },
-  {
-    id: 'spiral', name: '究极螺旋', rect: rect(-2450, 1750, -1750, 2450),
-    species: ['bumblebee', 'spider', 'hornet', 'centipede'], rarityW: [0, 0, 0, 4, 14, 28, 30, 16, 6], weight: 3,
-  },
-  {
-    id: 'inner', name: '花园内圈', rect: rect(-1600, -1600, 1600, 1600),
-    species: ['baby_ant', 'worker_ant', 'rock', 'ladybug'], rarityW: [58, 28, 10, 3, 1], weight: 30,
-  },
-  {
-    id: 'mid', name: '花园中圈', rect: rect(-2400, -2400, 2400, 2400),
-    species: ['worker_ant', 'ladybug', 'bee', 'rock', 'soldier_ant', 'centipede'], rarityW: [34, 34, 15, 10, 5, 2], weight: 40,
-  },
-  {
-    id: 'outer', name: '花园外圈', rect: rect(-H, -H, H, H),
-    species: ['bee', 'hornet', 'spider', 'rock', 'bumblebee', 'soldier_ant', 'centipede'],
-    rarityW: [10, 18, 22, 12, 20, 10, 8, 3], weight: 22,
-  },
+  zone('spiral', '究极螺旋', 0, 0, 235, 235, ['bumblebee', 'spider', 'hornet', 'centipede'], [0, 0, 0, 5, 15, 30, 30, 15, 5], 3),
+  zone('tr', '传说瓢虫房', 470, 0, 700, 235, ['ladybug'], [0, 0, 4, 16, 40, 30, 8, 1], 4),
+  zone('br', '传说蜜蜂房', 470, 470, 700, 700, ['bee'], [0, 0, 4, 16, 40, 30, 8, 1], 4),
+  zone('bl', '传奇黄蜂走廊', 0, 300, 205, 525, ['hornet'], [0, 0, 8, 28, 40, 18, 5, 1], 4),
+  zone('blroom', '史诗蒲公英房', 0, 525, 225, 700, ['dandelion', 'centipede'], [0, 4, 26, 45, 20, 5], 4),
+  zone('myth', '神话长廊', 0, 0, 205, 300, ['spider', 'bumblebee', 'hornet', 'centipede'], [0, 0, 0, 8, 24, 38, 22, 6, 2], 3),
+  zone('inner', '花园中心', 235, 235, 465, 465, ['baby_ant', 'worker_ant', 'rock', 'ladybug'], [58, 28, 10, 3, 1], 30),
+  zone('mid', '花园中圈', 150, 150, 550, 550, ['worker_ant', 'ladybug', 'bee', 'rock', 'soldier_ant', 'centipede'], [34, 34, 15, 10, 5, 2], 40),
+  zone('outer', '花园外圈', 0, 0, 700, 700, ['bee', 'hornet', 'spider', 'rock', 'bumblebee', 'soldier_ant', 'centipede'], [10, 18, 22, 12, 20, 10, 8, 3], 22),
 ];
-
-export const SAFE_RADIUS = 560;
-
-function inRect(x: number, y: number, r: GRect): boolean {
-  return x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
-}
-
-export function zoneAt(x: number, y: number): GardenZone | undefined {
-  for (const z of ZONES) if (inRect(x, y, z.rect)) return z;
-  return undefined;
-}
-
-/** 圆形与墙体的碰撞:返回是否重叠 */
-export function blocked(x: number, y: number, r: number): boolean {
-  if (x < -H + r || x > H - r || y < -H + r || y > H - r) return true;
-  for (const w of WALLS) {
-    const cx = Math.max(w.x0, Math.min(x, w.x1));
-    const cy = Math.max(w.y0, Math.min(y, w.y1));
-    const dx = x - cx;
-    const dy = y - cy;
-    if (dx * dx + dy * dy < r * r) return true;
-  }
-  return false;
-}
-
-/** 将圆形推出墙体(简易两轮迭代) */
-export function pushOut(x: number, y: number, r: number): [number, number] {
-  for (let iter = 0; iter < 3; iter++) {
-    for (const w of WALLS) {
-      const cx = Math.max(w.x0, Math.min(x, w.x1));
-      const cy = Math.max(w.y0, Math.min(y, w.y1));
-      let dx = x - cx;
-      let dy = y - cy;
-      const d = Math.hypot(dx, dy);
-      if (d < r) {
-        if (d < 0.0001) {
-          const left = x - w.x0;
-          const right = w.x1 - x;
-          const top = y - w.y0;
-          const bottom = w.y1 - y;
-          const m = Math.min(left, right, top, bottom);
-          if (m === left) x = w.x0 - r;
-          else if (m === right) x = w.x1 + r;
-          else if (m === top) y = w.y0 - r;
-          else y = w.y1 + r;
-        } else {
-          const push = (r - d) / d;
-          x += dx * push;
-          y += dy * push;
-        }
-      }
-    }
-    x = Math.max(-H + r, Math.min(H - r, x));
-    y = Math.max(-H + r, Math.min(H - r, y));
-  }
-  return [x, y];
-}
 
 function weightedPick(w: number[]): number {
   let sum = 0;
@@ -218,30 +155,28 @@ function weightedPick(w: number[]): number {
   return w.length - 1;
 }
 
-/** 随机取一个合法刷怪点(按分区权重) */
+/** 随机合法刷怪点(按分区权重,必须落在可行走格) */
 export function randomSpawnPoint(): { x: number; y: number; zone: GardenZone } | null {
   let total = 0;
   for (const z of ZONES) total += z.weight;
-  for (let attempt = 0; attempt < 24; attempt++) {
+  for (let attempt = 0; attempt < 48; attempt++) {
     let r = Math.random() * total;
-    let zone = ZONES[0];
+    let zoneSel = ZONES[0];
     for (const z of ZONES) {
       r -= z.weight;
       if (r <= 0) {
-        zone = z;
+        zoneSel = z;
         break;
       }
     }
-    const x = zone.rect.x0 + Math.random() * (zone.rect.x1 - zone.rect.x0);
-    const y = zone.rect.y0 + Math.random() * (zone.rect.y1 - zone.rect.y0);
-    if (Math.hypot(x, y) < SAFE_RADIUS + 80) continue;
+    const px = zoneSel.px0 + Math.random() * (zoneSel.px1 - zoneSel.px0);
+    const py = zoneSel.py0 + Math.random() * (zoneSel.py1 - zoneSel.py0);
+    if (!walkablePx(px, py)) continue;
+    const x = pxToWorld(px);
+    const y = pxToWorld(py);
+    if (Math.hypot(x - PLAYER_SPAWN[0], y - PLAYER_SPAWN[1]) < 320) continue;
     if (blocked(x, y, 26)) continue;
-    return { x, y, zone };
+    return { x, y, zone: zoneSel };
   }
   return null;
-}
-
-/** 以世界坐标哈希生成装饰噪声(渲染用) */
-export function wallShade(x: number, y: number): number {
-  return hash2(x | 0, y | 0);
 }
