@@ -4,6 +4,9 @@ export class Input {
   mouseX = 0;
   mouseY = 0; // 屏幕坐标(CSS px)
   keys = new Set<string>();
+  /** 鼠标左右键状态(用于攻击/防御姿态) */
+  mouseLeft = false;
+  mouseRight = false;
   /** 本帧是否有过用户交互(用于音效解锁) */
   interacted = false;
 
@@ -16,6 +19,18 @@ export class Input {
       this.mouseY = e.clientY;
       this.interacted = true;
     });
+    // 左右键:左键/空格 = 张开攻击,右键/Shift = 收拢防御
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 0) this.mouseLeft = true;
+      else if (e.button === 2) this.mouseRight = true;
+      this.interacted = true;
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mouseLeft = false;
+      else if (e.button === 2) this.mouseRight = false;
+    });
+    // 阻止右键菜单(右键用于防御姿态)
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('touchstart', (e) => {
       const t = e.touches[0];
       if (t) {
@@ -39,7 +54,11 @@ export class Input {
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.key.toLowerCase());
     });
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => {
+      this.keys.clear();
+      this.mouseLeft = false;
+      this.mouseRight = false;
+    });
   }
 
   /** 综合输入向量(世界系,长度 ≤1);鼠标方向优先,WASD 叠加 */

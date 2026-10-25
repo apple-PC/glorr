@@ -84,4 +84,6 @@ export interface SlotWire {
   rarity: number;
   hpPct: number;
   cdPct: number;
+  /** 破碎再生中(仅单机客户端用于 UI 显示,联机不传) */
+  broken?: boolean;
 }

@@ -6,7 +6,7 @@ export type ClientMsg =
   | { t: 'login'; name: string; password: string }
   | { t: 'whoami'; token: string }             // 用 token 恢复会话(不进入游戏)
   | { t: 'join'; token: string }               // 携带账号 token 进入游戏
-  | { t: 'in'; x: number; y: number }          // 移动输入方向(世界系,已归一化)
+  | { t: 'in'; x: number; y: number; expand?: number } // 移动输入方向 + 姿态(-1 收拢防御 / 0 常态 / +1 张开攻击)
   | { t: 'equip'; uid: number; slot: number }  // 背包花瓣 → 槽位(占用则交换)
   | { t: 'unequip'; slot: number }             // 槽位 → 背包
   | { t: 'moveInv'; from: number; to: number } // 背包内移动

@@ -82,6 +82,8 @@ export interface GameConn {
   tick(dt: number): void;
   renderPos(e: EntState): [number, number];
   selfEnt(): EntState | undefined;
+  /** 攻击/防御姿态对花瓣轨道半径的缩放系数(联机模式暂无姿态,返回 1) */
+  stanceScale(): number;
 }
 
 export class Net implements GameConn {
@@ -306,5 +308,10 @@ export class Net implements GameConn {
 
   selfEnt(): EntState | undefined {
     return this.ents.get(this.selfId);
+  }
+
+  /** 联机模式暂无姿态系统,轨道半径不缩放 */
+  stanceScale(): number {
+    return 1;
   }
 }

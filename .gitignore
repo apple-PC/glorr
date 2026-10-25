@@ -5,6 +5,9 @@ dist/
 npm-debug.log*
 .env
 
+# 推送用的 GitHub PAT(切勿提交!)
+.pat
+
 .workbuddy/
 
 data/

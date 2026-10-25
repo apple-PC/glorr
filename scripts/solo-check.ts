@@ -215,6 +215,36 @@ async function main(): Promise<void> {
     const slots = await cdp.eval(`document.querySelectorAll('#equiprow .eslot canvas').length`);
     allOk = check('花瓣槽位已渲染', typeof slots === 'number' && slots >= 5, `${slots} 个槽位`) && allOk;
 
+    // 新版程序化花园:圆石障碍 + 中央湖泊 + 出生点合法
+    const mapInfo = (await cdp.eval(`window.__map`)) as {
+      boulders: number;
+      blockedLake: boolean;
+      blockedSpawn: boolean;
+    };
+    allOk = check('花园含圆石障碍(>10)', typeof mapInfo?.boulders === 'number' && mapInfo.boulders > 10, String(mapInfo?.boulders)) && allOk;
+    allOk = check('中央湖泊不可行走', mapInfo?.blockedLake === true) && allOk;
+    allOk = check('出生点在陆地上(可行走)', mapInfo?.blockedSpawn === false) && allOk;
+
+    // 攻击/防御姿态:张开(左键)轨道放大,收拢(右键)轨道缩小,松手回常态
+    // 注意:姿态由真实输入(鼠标左右键/空格/Shift)经移动消息驱动,故用事件模拟而非直接 setStance
+    const scaleBaseline = await cdp.eval(`window.__glorr.stanceScale()`);
+    allOk = check('姿态常态轨道系数≈1', typeof scaleBaseline === 'number' && Math.abs((scaleBaseline as number) - 1) < 0.1, String(scaleBaseline)) && allOk;
+    const md = (btn: number) => `window.dispatchEvent(new MouseEvent('mousedown', { button: ${btn}, bubbles: true }))`;
+    const mu = (btn: number) => `window.dispatchEvent(new MouseEvent('mouseup', { button: ${btn}, bubbles: true }))`;
+    await cdp.eval(md(0));
+    await new Promise((r) => setTimeout(r, 600));
+    const scaleOpen = await cdp.eval(`window.__glorr.stanceScale()`);
+    allOk = check('左键张开姿态轨道放大(>1.2)', typeof scaleOpen === 'number' && (scaleOpen as number) > 1.2, String(scaleOpen)) && allOk;
+    await cdp.eval(mu(0));
+    await cdp.eval(md(2));
+    await new Promise((r) => setTimeout(r, 600));
+    const scaleClose = await cdp.eval(`window.__glorr.stanceScale()`);
+    allOk = check('右键收拢姿态轨道缩小(<0.9)', typeof scaleClose === 'number' && (scaleClose as number) < 0.9, String(scaleClose)) && allOk;
+    await cdp.eval(mu(2));
+    await new Promise((r) => setTimeout(r, 400));
+    const scaleReset = await cdp.eval(`window.__glorr.stanceScale()`);
+    allOk = check('松手回到常态', typeof scaleReset === 'number' && Math.abs((scaleReset as number) - 1) < 0.1, String(scaleReset)) && allOk;
+
     // 朝右移动一下,截一张实机图(验证朝向箭头/花朵血条/花瓣颜色)
     await cdp.eval(
       `(() => { const o={clientX:1000,clientY:430,bubbles:true}; window.dispatchEvent(new MouseEvent('mousemove',o)); window.dispatchEvent(new PointerEvent('pointermove',o)); return true; })()`,

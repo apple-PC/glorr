@@ -1,7 +1,7 @@
 // glorr 世界渲染:背景 / 实体 / 粒子 / 浮动文字
 import { DROP_DESPAWN, RARITY_COLORS } from '@shared/constants';
-import { GARDEN_HALF, PORTALS } from '@shared/garden';
-import { getGardenImage, getMazeCanvas } from '@client/mazeImage';
+import { GARDEN_HALF, LAKE } from '@shared/garden';
+import { getGardenCanvas } from '@client/gardenRender';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
@@ -72,7 +72,7 @@ export class Renderer {
       dpr * (h / 2 - camera.y * z),
     );
 
-    this.drawBackground(ctx, camera, w, h);
+    this.drawBackground(ctx, camera, w, h, time);
     this.drawEntities(ctx, camera, net, self, time);
     particles.draw(ctx);
     this.drawFloats(ctx);
@@ -88,32 +88,61 @@ export class Renderer {
 
   // ---------- 背景 ----------
 
-  private drawBackground(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number): void {
+  private drawBackground(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number, time: number): void {
     const H = GARDEN_HALF;
-    // 新版花园迷宫(白色可行走/黑色墙)
-    const garden = getGardenImage();
+    // 程序化花园底图(草地/湖泊/圆石/装饰/传送门)一次性烘焙,这里只 blit
+    const garden = getGardenCanvas();
     if (garden) {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(garden, -H, -H, H * 2, H * 2);
     } else {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(getMazeCanvas(), -H, -H, H * 2, H * 2);
-      ctx.imageSmoothingEnabled = true;
+      ctx.fillStyle = '#46a35c';
+      ctx.fillRect(-H, -H, H * 2, H * 2);
     }
 
-    // 传送门/出生点(绿色圆点)
-    for (const p of PORTALS) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 18, 0, TAU);
-      ctx.fillStyle = '#7ee07e';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    }
+    // 湖泊水波动画(叠加在底图湖面上)
+    this.drawLake(ctx, time);
+    // 分层刷怪区标签
+    this.drawZoneLabels(ctx);
     void cam;
     void w;
     void h;
+  }
+
+  /** 湖面动态水波 */
+  private drawLake(ctx: CanvasRenderingContext2D, time: number): void {
+    const { x, y, rx, ry } = LAKE;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+    ctx.clip();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const phase = time * 0.5 + i * 1.7;
+      const yy = y - ry + (((phase * 70) % (ry * 2)) + ry * 2) % (ry * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(x, yy, rx * 0.92, 7, 0, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** 分层刷怪区文字标签(淡) */
+  private drawZoneLabels(ctx: CanvasRenderingContext2D): void {
+    const labels = [
+      { r: 1450, t: '花园中心' },
+      { r: 2100, t: '花园中圈' },
+      { r: 2780, t: '花园外圈' },
+    ];
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.13)';
+    ctx.font = '700 56px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const l of labels) ctx.fillText(l.t, 0, -l.r);
+    ctx.restore();
   }
 
   // ---------- 实体 ----------
@@ -197,7 +226,7 @@ export class Renderer {
       const [rx, ry] = net.renderPos(e);
       if (!this.inView(cam, rx, ry, 120)) continue;
       const loadout = (net.othersLoadout.get(id) ?? []).map(([pid, rarity]) => ({ id: pid, rarity }));
-      this.drawPlayerWithPetals(ctx, rx, ry, e.ang ?? 0, e.name, e.hpPct ?? 1, loadout, time, false, 0);
+      this.drawPlayerWithPetals(ctx, rx, ry, e.ang ?? 0, e.name, e.hpPct ?? 1, loadout, time, false, 0, undefined, 1);
     }
 
     // 弹丸
@@ -260,7 +289,7 @@ export class Renderer {
     drawDirectionArrow(ctx, self.x, self.y, self.ang, 0.9);
 
     // 自己(最上层)
-    this.drawPlayerWithPetals(ctx, self.x, self.y, self.ang, '', self.hpPct, net.self?.slotList ?? [], time, true, self.invuln ? 1 : 0, self.slotAngles);
+    this.drawPlayerWithPetals(ctx, self.x, self.y, self.ang, '', self.hpPct, net.self?.slotList ?? [], time, true, self.invuln ? 1 : 0, self.slotAngles, net.stanceScale());
   }
 
   /** 绘制花朵 + 轨道花瓣(自己也用同一套逻辑) */
@@ -276,8 +305,9 @@ export class Renderer {
     isSelf: boolean,
     invulnFlag: number,
     selfAngles?: number[],
+    scale = 1,
   ): void {
-    const orbit = orbitRadius(slotList);
+    const orbit = orbitRadius(slotList) * scale;
     const rot = rotationSpeed(slotList);
     for (let i = 0; i < slotList.length; i++) {
       const s = slotList[i];

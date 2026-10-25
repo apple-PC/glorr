@@ -1,6 +1,6 @@
-// glorr 小地图(新版花园迷宫)
+// glorr 小地图(程序化花园)
 import { GARDEN_HALF, PORTALS } from '@shared/garden';
-import { getGardenImage, getMazeCanvas } from '@client/mazeImage';
+import { getGardenCanvas } from '@client/gardenRender';
 import { TAU } from '@shared/math';
 import type { GameConn } from '@client/net';
 
@@ -12,15 +12,14 @@ export function drawMinimap(canvas: HTMLCanvasElement, net: GameConn, _mapRadius
 
   c.clearRect(0, 0, size, size);
 
-  // 迷宫底图
-  const garden = getGardenImage();
+  // 花园底图
+  const garden = getGardenCanvas();
   if (garden) {
     c.imageSmoothingEnabled = true;
     c.drawImage(garden, inset, inset, size - inset * 2, size - inset * 2);
   } else {
-    c.imageSmoothingEnabled = false;
-    c.drawImage(getMazeCanvas(), inset, inset, size - inset * 2, size - inset * 2);
-    c.imageSmoothingEnabled = true;
+    c.fillStyle = '#46a35c';
+    c.fillRect(inset, inset, size - inset * 2, size - inset * 2);
   }
 
   const scale = (size - inset * 2) / (GARDEN_HALF * 2);

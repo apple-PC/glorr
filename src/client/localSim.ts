@@ -154,6 +154,11 @@ export class LocalSim implements GameConn {
   private magnetUntil = 0;
   private healUntil = 0;
   private talentReady: Record<string, number> = {};
+  /** 天赋等级(永久强化) */
+  talents: Record<string, number> = {};
+  /** 姿态:+1 完全张开(攻击),0 常态,-1 完全收拢(防御) */
+  private stance = 0;
+  private stanceTarget = 0;
   private inputX = 0;
   private inputY = 0;
   private time = 0;
@@ -199,6 +204,7 @@ export class LocalSim implements GameConn {
       case 'in':
         this.inputX = msg.x;
         this.inputY = msg.y;
+        this.setStance((msg.expand ?? 0) as -1 | 0 | 1);
         break;
       case 'equip':
         this.equip(msg.uid, msg.slot);
@@ -227,14 +233,39 @@ export class LocalSim implements GameConn {
     /* 单机无连接 */
   }
 
-  /** 天赋技能(左下角按钮):加速 / 磁铁 / 治疗,20s 冷却 */
+  /** 主动技能(加速 / 磁铁 / 治疗):天赋等级越高,持续越久、冷却越短 */
   talent(kind: 'speed' | 'magnet' | 'heal'): void {
     if (this.dead) return;
     if (this.time < (this.talentReady[kind] ?? 0)) return;
-    this.talentReady[kind] = this.time + 20;
-    if (kind === 'speed') this.speedUntil = this.time + 5;
-    else if (kind === 'magnet') this.magnetUntil = this.time + 6;
-    else this.healUntil = this.time + 4;
+    const lv = this.talents[kind] ?? 0;
+    const cd = Math.max(8, 20 * (1 - 0.06 * lv));
+    const durMul = 1 + 0.18 * lv;
+    this.talentReady[kind] = this.time + cd;
+    if (kind === 'speed') this.speedUntil = this.time + 5 * durMul;
+    else if (kind === 'magnet') this.magnetUntil = this.time + 6 * durMul;
+    else this.healUntil = this.time + 4 * durMul;
+  }
+
+  /** 攻击/防御姿态:张开(+1)把花瓣甩出去,RMB 收拢(-1)把花瓣贴到花心挡伤害 */
+  setStance(v: -1 | 0 | 1): void {
+    this.stanceTarget = v;
+  }
+
+  /** 花瓣轨道半径缩放(渲染与判定共用同一系数) */
+  stanceScale(): number {
+    return 1 + 0.55 * Math.max(0, this.stance) - 0.42 * Math.max(0, -this.stance);
+  }
+
+  /** 应用天赋等级(来自 UI,持久化在 localStorage) */
+  applyTalents(t: Record<string, number>): void {
+    this.talents = { ...t };
+    const ratio = this.maxHp > 0 ? this.hp / this.maxHp : 1;
+    this.maxHp = C.PLAYER.baseHp * (1 + 0.08 * (this.talents.hp ?? 0));
+    this.hp = Math.min(this.maxHp, this.maxHp * ratio);
+  }
+
+  private dmgMul(): number {
+    return 1 + 0.06 * (this.talents.dmg ?? 0);
   }
 
   renderPos(e: EntState): [number, number] {
@@ -250,6 +281,7 @@ export class LocalSim implements GameConn {
   tick(dt: number): void {
     dt = Math.min(Math.max(dt, 0), 0.05);
     this.time += dt;
+    this.stance += (this.stanceTarget - this.stance) * Math.min(1, 9 * dt);
     if (!this.dead) this.updatePlayer(dt);
     this.updateMobs(dt);
     this.updatePetals(dt);
@@ -314,6 +346,8 @@ export class LocalSim implements GameConn {
 
   private damagePlayer(dmg: number, fromX: number, fromY: number): void {
     if (this.dead || this.time < this.invulnUntil) return;
+    // 收拢花瓣的防御姿态:减伤 30%
+    if (this.stance < 0) dmg *= 1 - 0.3 * Math.min(1, -this.stance);
     this.hp -= dmg;
     this.onFloat?.(this.x + rand(-6, 6), this.y - 34, `-${Math.round(dmg)}`, '#ff8a8a');
     if (this.hp <= 0) {
@@ -502,8 +536,9 @@ export class LocalSim implements GameConn {
     }
   }
 
-  private damageMob(m: MobEnt, dmg: number): void {
+  private damageMob(m: MobEnt, rawDmg: number): void {
     const def = getMob(m.defId);
+    const dmg = rawDmg * this.dmgMul();
     const armor = (def.armor ?? 0) * (C.MOB_ARMOR_MULT[m.rarity] ?? 1);
     const real = Math.max(1, dmg - armor);
     m.hp -= real;
@@ -561,7 +596,7 @@ export class LocalSim implements GameConn {
 
   private updatePetals(dt: number): void {
     const loadout = this.slotList;
-    const R = orbitRadius(loadout);
+    const R = orbitRadius(loadout) * this.stanceScale();
     const rot = rotationSpeed(loadout);
     const count = Math.max(1, loadout.length);
 
@@ -640,7 +675,7 @@ export class LocalSim implements GameConn {
   /** 查询某点是否落在某个装备花瓣的命中范围内(用于拦截怪物/弹幕) */
   private petalAt(x: number, y: number, pad: number): { s: SlotState; i: number } | null {
     const loadout = this.slotList;
-    const R = orbitRadius(loadout);
+    const R = orbitRadius(loadout) * this.stanceScale();
     const rot = rotationSpeed(loadout);
     const count = Math.max(1, loadout.length);
     for (let i = 0; i < C.MAX_SLOTS; i++) {
@@ -825,8 +860,14 @@ export class LocalSim implements GameConn {
 
   private emitYou(): void {
     const slotList: (SlotWire | null)[] = this.slotList.map((s) => {
-      if (!s || s.broken) return null;
+      if (!s) return null;
       const def = getPetal(s.id);
+      if (s.broken) {
+        // 破碎:槽位保留,冷却期间显示再生进度(不用 null,否则 UI 分不清空槽与冷却中)
+        const max = reloadFor(def);
+        const cdPct = Math.max(0, Math.min(1, s.regenT / max));
+        return { id: s.id, rarity: s.rarity, hpPct: 0, cdPct, broken: true } as SlotWire;
+      }
       const cdPct = def.reload > 0 ? Math.max(0, Math.min(1, s.reloadT / def.reload)) : 0;
       return { id: s.id, rarity: s.rarity, hpPct: s.maxHp > 0 ? s.hp / s.maxHp : 0, cdPct } as SlotWire;
     });

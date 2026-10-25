@@ -1,11 +1,15 @@
 // glorr UI 层:florr 式 HUD(花瓣双栏/玩家列表/聊天/小地图)+ 弹窗 + 拖拽
-import { CRAFT_INPUT, CRAFT_SUCCESS, ETERNAL, MAX_SLOTS, RARITY_COLORS, WORLD, rarityName } from '@shared/constants';
+import { CRAFT_INPUT, CRAFT_SUCCESS, ETERNAL, MAX_SLOTS, PLAYER, RARITY_COLORS, WORLD, rarityName } from '@shared/constants';
 import { getPetal } from '@shared/data/petals';
+import { MOBS } from '@shared/data/mobs';
 import { DEFAULT_SERVER_ID, SERVERS } from '@shared/servers';
 import type { GameConn, SelfState } from '@client/net';
-import { drawFlower, drawPetalIcon } from '@client/sprites';
+import { drawFlower, drawMob, drawPetalIcon, drawTalentBadge, PETAL_EN } from '@client/sprites';
 import { drawMinimap } from '@client/minimap';
+import { rotationSpeed } from '@shared/data/petals';
 import { TAU } from '@shared/math';
+
+const RARITY_EN = ['Common', 'Unusual', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Ultra', 'Super', 'Eternal', 'Unique'];
 
 export interface UiCallbacks {
   onEquip(uid: number, slot: number): void;
@@ -18,7 +22,25 @@ export interface UiCallbacks {
   onLogin(name: string, password: string): void;
   onRegister(name: string, password: string): void;
   onSelectServer(id: string): void;
+  onTalents(levels: Record<string, number>): void;
 }
+
+/** 天赋定义(消耗 TP 永久强化) */
+export interface TalentDef {
+  id: 'speed' | 'magnet' | 'heal' | 'hp' | 'dmg';
+  name: string;
+  max: number;
+  baseCost: number;
+  desc: string;
+}
+
+export const TALENTS: TalentDef[] = [
+  { id: 'speed', name: '疾跑', max: 5, baseCost: 1, desc: '技能「疾跑」持续更久、冷却更短' },
+  { id: 'magnet', name: '磁力', max: 5, baseCost: 1, desc: '技能「磁铁」持续更久、冷却更短' },
+  { id: 'heal', name: '愈合', max: 5, baseCost: 1, desc: '技能「治疗」持续更久、冷却更短' },
+  { id: 'hp', name: '生命', max: 8, baseCost: 1, desc: '每级 +8% 最大生命' },
+  { id: 'dmg', name: '锋利', max: 8, baseCost: 1, desc: '每级 +6% 花瓣伤害' },
+];
 
 interface InvEntry {
   id: string;
@@ -77,18 +99,19 @@ export class Ui {
       slot.className = 'eslot locked';
       slot.dataset.slot = String(i);
       const cv = document.createElement('canvas');
-      cv.width = 42;
-      cv.height = 42;
-      cv.style.width = '42px';
-      cv.style.height = '42px';
-      cv.style.borderRadius = '10px';
+      cv.width = 44;
+      cv.height = 44;
+      cv.style.width = '44px';
+      cv.style.height = '44px';
+      const label = document.createElement('span');
+      label.className = 'ename';
       const overlay = document.createElement('div');
       overlay.className = 'cdoverlay';
       const dur = document.createElement('div');
       dur.className = 'dur';
       const durFill = document.createElement('div');
       dur.appendChild(durFill);
-      slot.append(cv, overlay, dur);
+      slot.append(cv, label, overlay, dur);
       this.equipRow.appendChild(slot);
       this.slotEls.push(slot);
       this.slotCanvases.push(cv);
@@ -99,7 +122,15 @@ export class Ui {
 
   private bindChrome(): void {
     document.getElementById('craftbtn')!.addEventListener('click', () => this.toggleCraft());
+    document.getElementById('bagbtn')!.addEventListener('click', () => this.toggleInventory());
+    document.getElementById('talentbtn')!.addEventListener('click', () => this.toggleTalents());
+    document.getElementById('bestbtn')!.addEventListener('click', () => this.toggleBestiary());
     document.getElementById('craftclose')!.addEventListener('click', () => this.craftModal.classList.add('hidden'));
+    for (const btn of document.querySelectorAll<HTMLElement>('[data-close]')) {
+      btn.addEventListener('click', () => {
+        document.getElementById(btn.dataset.close!)?.classList.add('hidden');
+      });
+    }
     this.soundBtn.addEventListener('click', () => this.cb.onToggleSound());
     this.menuSoundBtn.addEventListener('click', () => this.cb.onToggleSound());
     document.getElementById('respawnbtn')!.addEventListener('click', () => {
@@ -287,6 +318,9 @@ export class Ui {
       if (!this.drag) return;
       this.drag.moved = true;
       this.moveGhost(e.clientX, e.clientY);
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const delEl = under?.closest('.islot.del') as HTMLElement | null;
+      for (const d of document.querySelectorAll('.islot.del')) d.classList.toggle('hot', d === delEl);
     });
 
     window.addEventListener('pointerup', (e) => {
@@ -294,8 +328,13 @@ export class Ui {
       const drag = this.drag;
       const under = document.elementFromPoint(e.clientX, e.clientY);
       const slotEl = under?.closest('.eslot') as HTMLElement | null;
+      const delEl = under?.closest('.islot.del') as HTMLElement | null;
 
-      if (drag.uid >= 0) {
+      if (delEl && drag.uid >= 0) {
+        this.cb.onDrop(drag.uid);
+      } else if (delEl && drag.slot >= 0) {
+        this.cb.onUnequip(drag.slot);
+      } else if (drag.uid >= 0) {
         if (slotEl) {
           const slot = Number(slotEl.dataset.slot);
           if (slot < (this.self?.slots ?? 0)) this.cb.onEquip(drag.uid, slot);
@@ -497,23 +536,34 @@ export class Ui {
     const first = !this.self;
     this.self = self;
 
-    // 装备槽图标/边框/锁定
+    // 装备槽图标/稀有度底色/花瓣名
     const sig = self.slotList.map((s) => (s ? `${s.id}:${s.rarity}` : '-')).join(',');
     if (sig !== this.slotSig || first) {
+      const prev = this.slotSig.split(',');
       this.slotSig = sig;
+      const curr = sig.split(',');
       for (let i = 0; i < MAX_SLOTS; i++) {
         const cv = this.slotCanvases[i];
         const c = cv.getContext('2d')!;
         c.clearRect(0, 0, cv.width, cv.height);
         const el = this.slotEls[i];
+        const label = el.querySelector('.ename') as HTMLElement;
         const s = self.slotList[i];
         if (s) {
-          drawPetalIcon(c, s.id, 21, 21, 15, s.rarity);
-          el.style.background = RARITY_COLORS[s.rarity];
-          el.style.borderColor = 'rgba(0,0,0,0.35)';
+          drawPetalIcon(c, s.id, 22, 21, 15, s.rarity);
+          el.style.background = RARITY_COLORS[s.rarity] ?? '#8a8f95';
+          label.textContent = PETAL_EN[s.id] ?? getPetal(s.id).name;
+          el.title = `${getPetal(s.id).name} · ${rarityName(s.rarity)}(${Math.round(s.hpPct * 100)}% 耐久)`;
+          if (prev[i] !== curr[i] && !el.classList.contains('pop')) {
+            el.classList.remove('pop');
+            void el.offsetWidth;
+            el.classList.add('pop');
+            window.setTimeout(() => el.classList.remove('pop'), 240);
+          }
         } else {
-          el.style.background = 'rgba(255,255,255,0.08)';
-          el.style.borderColor = 'rgba(255,255,255,0.14)';
+          el.style.background = '';
+          label.textContent = '';
+          el.title = '';
         }
       }
     }
@@ -522,9 +572,10 @@ export class Ui {
       const locked = i >= self.slots;
       el.classList.toggle('locked', locked);
       const s = self.slotList[i];
+      el.classList.toggle('broken', !!s?.broken);
       const durFill = el.querySelector('.dur > div') as HTMLDivElement;
       durFill.style.width = s ? `${Math.max(0, s.hpPct) * 100}%` : '0%';
-      durFill.style.background = s && s.hpPct < 0.4 ? '#e05252' : '#7ee07e';
+      durFill.style.background = s && s.hpPct < 0.4 ? '#e05252' : '#6fdc6f';
     }
 
     // 背包热键栏(按 花瓣+稀有度 聚合)
@@ -540,11 +591,11 @@ export class Ui {
       this.addSysChat('欢迎来到 glorr 花园,击杀生物收集花瓣吧');
     }
 
-    // 左上角玩家条(头像 + 名字 + 等级 + 经验)
+    // 左上角玩家卡(头像 + 名字 + 等级 + 经验)
     const hudName = document.getElementById('hudname');
     if (hudName) hudName.textContent = self.name;
     const hudLvl = document.getElementById('hudlvl');
-    if (hudLvl) hudLvl.textContent = `Lvl ${self.level}`;
+    if (hudLvl) hudLvl.textContent = `Lvl ${self.level} Flower`;
     const hudXp = document.getElementById('hudxp');
     if (hudXp) hudXp.style.width = `${self.xpNeed > 0 ? Math.min(100, (self.xp / self.xpNeed) * 100) : 0}%`;
     if (!this.hudAvatarDrawn) {
@@ -554,7 +605,7 @@ export class Ui {
         const c = cv.getContext('2d');
         if (c) {
           c.clearRect(0, 0, cv.width, cv.height);
-          drawFlower(c, 23, 23, 15, -Math.PI / 2, {});
+          drawFlower(c, 26, 26, 16, -Math.PI / 2, {});
         }
       }
     }
@@ -573,31 +624,38 @@ export class Ui {
       }
       entry.uids.push(it.uid);
     }
-    this.invEntries = [...map.values()];
+    this.invEntries = [...map.values()].sort((a, b) => b.rarity - a.rarity);
     this.invEntries.forEach((entry, idx) => {
       const el = document.createElement('div');
       el.className = 'islot';
       el.dataset.idx = String(idx);
-      el.style.background = RARITY_COLORS[entry.rarity];
-      el.style.border = '2px solid rgba(0,0,0,0.25)';
       const cv = document.createElement('canvas');
-      cv.width = 34;
-      cv.height = 34;
-      cv.style.width = '34px';
-      cv.style.height = '34px';
-      cv.style.borderRadius = '8px';
+      cv.width = 36;
+      cv.height = 36;
+      cv.style.width = '36px';
+      cv.style.height = '36px';
+      cv.style.background = RARITY_COLORS[entry.rarity] ?? '#8a8f95';
+      cv.style.boxShadow = 'inset 0 2px 0 rgba(255,255,255,0.28)';
       const c = cv.getContext('2d')!;
-      drawPetalIcon(c, entry.id, 17, 17, 12, entry.rarity);
+      drawPetalIcon(c, entry.id, 18, 18, 12, entry.rarity);
       const hk = document.createElement('span');
       hk.className = 'hk';
-      hk.textContent = idx < 9 ? String(idx + 1) : '0';
+      hk.textContent = idx < 9 ? String(idx + 1) : idx === 9 ? '0' : '';
       const cnt = document.createElement('span');
       cnt.className = 'cnt';
-      cnt.textContent = String(entry.uids.length);
+      cnt.textContent = entry.uids.length > 1 ? String(entry.uids.length) : '';
       el.append(cv, hk, cnt);
       el.title = `${getPetal(entry.id).name}·${rarityName(entry.rarity)} ×${entry.uids.length}(点击装备)`;
       this.invRow.appendChild(el);
     });
+    // 丢弃槽(红褐色,florr 背包最右侧)
+    const del = document.createElement('div');
+    del.className = 'islot del';
+    del.dataset.del = '1';
+    del.title = '拖到这里丢弃';
+    del.innerHTML =
+      '<svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm3 2v8h2v-8H9zm4 0v8h2v-8h-2z"/></svg>';
+    this.invRow.appendChild(del);
   }
 
   /** 热键/点击背包条目:装备到第一个空槽,满了放第 0 格 */
@@ -609,18 +667,68 @@ export class Ui {
     this.cb.onEquip(entry.uids[0], target);
   }
 
-  /** 每帧:装填扫层 */
+  /** 每帧:装填/再生扫层 + 转速盘 */
   tickSlots(): void {
     if (!this.self) return;
     for (let i = 0; i < MAX_SLOTS; i++) {
       const s = this.self.slotList[i];
       const overlay = this.slotEls[i].querySelector('.cdoverlay') as HTMLDivElement;
-      if (s && s.cdPct > 0) {
-        overlay.style.background = `conic-gradient(rgba(0,0,0,0.45) ${s.cdPct * 360}deg, transparent 0deg)`;
+      if (s && s.cdPct > 0.001) {
+        overlay.style.background = `conic-gradient(rgba(0,0,0,0.52) ${s.cdPct * 360}deg, transparent 0deg)`;
       } else if (overlay.style.background) {
         overlay.style.background = '';
       }
     }
+    this.drawRotGauge();
+  }
+
+  /** 右下角转速盘:实心圆 + 绕圈白点(florr 原作同款) */
+  private drawRotGauge(): void {
+    if (!this.self) return;
+    const cv = document.getElementById('rotgauge') as HTMLCanvasElement | null;
+    if (!cv) return;
+    const c = cv.getContext('2d');
+    if (!c) return;
+    const W = cv.width;
+    const cx = W / 2;
+    const cy = W / 2;
+    const R = W / 2 - 8;
+    c.clearRect(0, 0, W, W);
+    // 底盘
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.fillStyle = 'rgba(12, 22, 15, 0.62)';
+    c.fill();
+    c.lineWidth = 4;
+    c.strokeStyle = 'rgba(10, 16, 12, 0.75)';
+    c.stroke();
+    // 花心
+    c.beginPath();
+    c.arc(cx, cy, R * 0.26, 0, TAU);
+    c.fillStyle = '#ffd94d';
+    c.fill();
+    c.lineWidth = 2.5;
+    c.strokeStyle = 'rgba(40, 34, 10, 0.75)';
+    c.stroke();
+    // 绕圈白点 = 装备中的花瓣
+    const slots = this.self.slotList.filter((s) => s && !s.broken);
+    const n = Math.max(1, slots.length);
+    const rot = rotationSpeed(this.self.slotList);
+    const t = performance.now() / 1000;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + rot * t;
+      const px = cx + Math.cos(a) * R * 0.66;
+      const py = cy + Math.sin(a) * R * 0.66;
+      c.beginPath();
+      c.arc(px, py, 3.6, 0, TAU);
+      c.fillStyle = '#ffffff';
+      c.fill();
+      c.lineWidth = 1.5;
+      c.strokeStyle = 'rgba(20, 24, 20, 0.6)';
+      c.stroke();
+    }
+    const label = document.getElementById('rotlabel');
+    if (label) label.textContent = `旋转 ${Math.round((rot / PLAYER.baseRotation) * 100)}%`;
   }
 
   /** 玩家列表(自己 + 视野内玩家) */
@@ -716,5 +824,207 @@ export class Ui {
 
   hideMenu(): void {
     document.getElementById('menuscreen')!.classList.add('hidden');
+  }
+
+  // ---------- 背包 / 天赋 / 图鉴(左下三个功能键) ----------
+
+  private invModal = document.getElementById('invmodal')!;
+  private talentModal = document.getElementById('talentmodal')!;
+  private bestModal = document.getElementById('bestmodal')!;
+  talents: Record<string, number> = {};
+  tp = 0;
+
+  loadTalents(): void {
+    try {
+      const raw = localStorage.getItem('glorr.talents');
+      if (raw) this.talents = JSON.parse(raw) as Record<string, number>;
+      this.tp = Number(localStorage.getItem('glorr.tp') ?? '0') || 0;
+    } catch {
+      /* 忽略损坏的本地数据 */
+    }
+    this.cb.onTalents(this.talents);
+    this.refreshTalents();
+  }
+
+  saveTalents(): void {
+    localStorage.setItem('glorr.talents', JSON.stringify(this.talents));
+    localStorage.setItem('glorr.tp', String(this.tp));
+  }
+
+  /** 升级奖励天赋点:普通 +1,尾数 5 额外 +1,尾数 0 额外 +9 */
+  grantTp(level: number): number {
+    const gain = 1 + (level % 10 === 5 ? 1 : 0) + (level % 10 === 0 ? 9 : 0);
+    this.tp += gain;
+    this.saveTalents();
+    this.refreshTalents();
+    return gain;
+  }
+
+  private showModal(which: 'inv' | 'tal' | 'best' | null): void {
+    this.invModal.classList.toggle('hidden', which !== 'inv');
+    this.talentModal.classList.toggle('hidden', which !== 'tal');
+    this.bestModal.classList.toggle('hidden', which !== 'best');
+  }
+
+  toggleInventory(): void {
+    const open = this.invModal.classList.contains('hidden');
+    this.showModal(open ? 'inv' : null);
+    if (open) this.buildInventory();
+  }
+
+  toggleTalents(): void {
+    const open = this.talentModal.classList.contains('hidden');
+    this.showModal(open ? 'tal' : null);
+    if (open) this.refreshTalents();
+  }
+
+  toggleBestiary(): void {
+    const open = this.bestModal.classList.contains('hidden');
+    this.showModal(open ? 'best' : null);
+    if (open) this.buildBestiary();
+  }
+
+  closeAllPanels(): void {
+    this.showModal(null);
+    this.craftModal.classList.add('hidden');
+    this.settingsModal.classList.add('hidden');
+  }
+
+  /** 仅关闭背包/天赋/图鉴三个面板(不碰合成/设置) */
+  closePanels(): void {
+    this.showModal(null);
+  }
+
+  private buildInventory(): void {
+    const grid = document.getElementById('invgrid');
+    if (!grid || !this.self) return;
+    grid.innerHTML = '';
+    const byRarity = new Map<number, Map<string, number>>();
+    for (const it of this.self.inv) {
+      let m = byRarity.get(it.rarity);
+      if (!m) {
+        m = new Map();
+        byRarity.set(it.rarity, m);
+      }
+      m.set(it.id, (m.get(it.id) ?? 0) + 1);
+    }
+    const rarities = [...byRarity.keys()].sort((a, b) => b - a);
+    for (const r of rarities) {
+      const m = byRarity.get(r)!;
+      const group = document.createElement('div');
+      group.className = 'invgroup';
+      const head = document.createElement('h4');
+      const total = [...m.values()].reduce((a, b) => a + b, 0);
+      head.textContent = `${RARITY_EN[r] ?? rarityName(r)} · ${total}`;
+      const rows = document.createElement('div');
+      rows.className = 'invrows';
+      for (const [id, count] of m) {
+        const cell = document.createElement('div');
+        cell.className = 'invcell';
+        cell.style.background = RARITY_COLORS[r] ?? '#8a8f95';
+        const cv = document.createElement('canvas');
+        cv.width = 40;
+        cv.height = 40;
+        drawPetalIcon(cv.getContext('2d')!, id, 20, 20, 14, r);
+        const n = document.createElement('span');
+        n.className = 'n';
+        n.textContent = String(count);
+        cell.append(cv, n);
+        cell.title = `${getPetal(id).name}·${rarityName(r)} ×${count}(点击装备)`;
+        cell.addEventListener('click', () => this.equipById(id, r));
+        rows.appendChild(cell);
+      }
+      group.append(head, rows);
+      grid.appendChild(group);
+    }
+    if (!rarities.length) {
+      const empty = document.createElement('div');
+      empty.className = 'fhint';
+      empty.textContent = '背包是空的,去打怪捡花瓣吧';
+      grid.appendChild(empty);
+    }
+    const cnt = document.getElementById('invcount');
+    if (cnt) cnt.textContent = `${this.self.inv.length} 片`;
+  }
+
+  private equipById(id: string, rarity: number): void {
+    const it = this.self?.inv.find((x) => x.id === id && x.rarity === rarity);
+    if (!it || !this.self) return;
+    let target = this.self.slotList.findIndex((x, i) => !x && i < this.self!.slots);
+    if (target < 0) target = 0;
+    this.cb.onEquip(it.uid, target);
+  }
+
+  private refreshTalents(): void {
+    const tree = document.getElementById('talenttree');
+    if (!tree) return;
+    tree.innerHTML = '';
+    for (const t of TALENTS) {
+      const lv = this.talents[t.id] ?? 0;
+      const cost = t.baseCost + lv;
+      const maxed = lv >= t.max;
+      const node = document.createElement('div');
+      node.className = `tnode${maxed ? ' maxed' : ''}${!maxed && this.tp < cost ? ' poor' : ''}`;
+      const cv = document.createElement('canvas');
+      cv.width = 54;
+      cv.height = 54;
+      drawTalentBadge(cv.getContext('2d')!, t.id, 27, 27, 24);
+      const name = document.createElement('span');
+      name.className = 'tl';
+      name.textContent = `${t.name} ${lv}/${t.max}`;
+      const cst = document.createElement('span');
+      cst.className = 'tc';
+      cst.textContent = maxed ? '已满级' : `${cost} TP`;
+      node.append(cv, name, cst);
+      node.title = t.desc;
+      node.addEventListener('click', () => {
+        const cur = this.talents[t.id] ?? 0;
+        const price = t.baseCost + cur;
+        if (cur >= t.max || this.tp < price) return;
+        this.talents[t.id] = cur + 1;
+        this.tp -= price;
+        this.saveTalents();
+        this.refreshTalents();
+        this.cb.onTalents(this.talents);
+        this.toast(`天赋「${t.name}」提升到 ${cur + 1} 级`);
+      });
+      tree.appendChild(node);
+    }
+    const tpEl = document.getElementById('tpnum');
+    if (tpEl) tpEl.textContent = String(this.tp);
+  }
+
+  private buildBestiary(): void {
+    const list = document.getElementById('bestlist');
+    if (!list) return;
+    list.innerHTML = '';
+    MOBS.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'brow';
+      const cv = document.createElement('canvas');
+      cv.width = 30;
+      cv.height = 30;
+      drawMob(cv.getContext('2d')!, i, 15, 15, 10, -Math.PI / 2, 0, 0, 1, 0);
+      const nm = document.createElement('span');
+      nm.className = 'bn';
+      nm.textContent = m.name;
+      const st = document.createElement('span');
+      st.className = 'bs';
+      const behavior = { passive: '被动', neutral: '中立', aggressive: '敌对', static: '静止' }[m.behavior] ?? '—';
+      st.innerHTML = `生命 <b>${m.hp}</b> · 伤害 <b>${m.dmg}</b> · 经验 <b>${m.xp}</b> · ${behavior}`;
+      row.append(cv, nm, st);
+      list.appendChild(row);
+    });
+    const c = document.getElementById('bestcount');
+    if (c) c.textContent = `${MOBS.length} 种`;
+  }
+
+  /** 升级时闪一下经验条 */
+  flashLevel(): void {
+    const w = document.querySelector('.xpwrap') as HTMLElement | null;
+    if (!w) return;
+    w.classList.remove('levelup');
+    void w.offsetWidth;
+    w.classList.add('levelup');
   }
 }

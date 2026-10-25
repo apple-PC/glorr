@@ -40,6 +40,26 @@ const MOB_EN: Record<string, string> = {
 };
 const RARITY_EN = ['Common', 'Unusual', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Ultra', 'Super', 'Eternal', 'Unique'];
 
+/** 花瓣英文名(槽位标签用,与 florr 一致) */
+export const PETAL_EN: Record<string, string> = {
+  basic: 'Basic',
+  fast: 'Light',
+  heavy: 'Heavy',
+  leaf: 'Leaf',
+  rose: 'Rose',
+  stinger: 'Stinger',
+  rock: 'Rock',
+  missile: 'Missile',
+  web: 'Web',
+  faster: 'Faster',
+  honey: 'Honey',
+  peas: 'Peas',
+  magnet: 'Magnet',
+  wing: 'Wing',
+  glass: 'Glass',
+  clover: 'Clover',
+};
+
 /** 花瓣形状路径(以原点为中心,朝上,-y 为尖) */
 function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
   ctx.beginPath();
@@ -675,14 +695,408 @@ function shade(hex: string, amt: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-/** UI 用小图标(不旋转) */
+/** 统一深色描边,做出 florr 的贴纸感 */
+function iconStroke(ctx: CanvasRenderingContext2D, s: number, alpha = 0.8): void {
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.1, s * 0.14);
+  ctx.strokeStyle = `rgba(38, 42, 46, ${alpha})`;
+  ctx.stroke();
+}
+
+/**
+ * UI 花瓣图标:居中、不旋转、按花瓣本体上色(槽位底色由 CSS 负责稀有度)
+ * 造型对齐现代 florr:大色块 + 粗描边 + 极简高光
+ */
 export function drawPetalIcon(
   ctx: CanvasRenderingContext2D,
   petalId: string,
   cx: number,
   cy: number,
   size: number,
-  rarity: number,
+  rarity = 0,
 ): void {
-  drawPetal(ctx, petalId, cx, cy, size, -Math.PI / 2, rarity, 1);
+  ctx.save();
+  ctx.translate(cx, cy);
+  const s = size;
+  void rarity;
+  switch (petalId) {
+    case 'basic': {
+      // 单纯的白色圆瓣
+      ctx.beginPath();
+      ctx.arc(0, 0, s, 0, TAU);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.52, 0, TAU);
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      ctx.strokeStyle = 'rgba(206, 212, 218, 0.95)';
+      ctx.stroke();
+      break;
+    }
+    case 'fast': {
+      // Light:四个小白球菱形排布
+      const rr = s * 0.4;
+      const off = s * 0.5;
+      const pts: [number, number][] = [[0, -off], [off, 0], [0, off], [-off, 0]];
+      for (const [dx, dy] of pts) {
+        ctx.beginPath();
+        ctx.arc(dx, dy, rr, 0, TAU);
+        ctx.fillStyle = '#fdfcf6';
+        ctx.fill();
+        iconStroke(ctx, s, 0.55);
+      }
+      break;
+    }
+    case 'heavy': {
+      // 六边形砝码
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU - Math.PI / 2;
+        const x = Math.cos(a) * s * 0.92;
+        const y = Math.sin(a) * s * 0.92;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#b7bcc2';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU - Math.PI / 2;
+        const x = Math.cos(a) * s * 0.45;
+        const y = Math.sin(a) * s * 0.45;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fill();
+      break;
+    }
+    case 'leaf': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.quadraticCurveTo(s * 1.02, -s * 0.15, 0, s);
+      ctx.quadraticCurveTo(-s * 1.02, -s * 0.15, 0, -s);
+      ctx.fillStyle = '#5fbe5d';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.72);
+      ctx.lineTo(0, s * 0.8);
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      ctx.strokeStyle = 'rgba(30, 90, 42, 0.55)';
+      ctx.stroke();
+      break;
+    }
+    case 'rose': {
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.95, 0, TAU);
+      ctx.fillStyle = '#e8607f';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      // 螺旋花瓣
+      ctx.beginPath();
+      for (let i = 0; i < 26; i++) {
+        const t = i / 25;
+        const a = t * TAU * 1.6;
+        const r = s * 0.1 + t * s * 0.72;
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = Math.max(1, s * 0.11);
+      ctx.strokeStyle = 'rgba(150, 26, 60, 0.7)';
+      ctx.stroke();
+      break;
+    }
+    case 'stinger': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 1.08);
+      ctx.lineTo(s * 0.52, s * 0.72);
+      ctx.quadraticCurveTo(0, s * 1.02, -s * 0.52, s * 0.72);
+      ctx.closePath();
+      ctx.fillStyle = '#f7e07d';
+      ctx.fill();
+      iconStroke(ctx, s, 0.75);
+      // 深色尖端
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 1.08);
+      ctx.lineTo(s * 0.24, -s * 0.2);
+      ctx.lineTo(-s * 0.24, -s * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = '#8c6a12';
+      ctx.fill();
+      break;
+    }
+    case 'rock': {
+      ctx.beginPath();
+      const pts: [number, number][] = [
+        [-0.86, -0.2], [-0.4, -0.86], [0.34, -0.9], [0.9, -0.28],
+        [0.72, 0.56], [0.12, 0.94], [-0.62, 0.72],
+      ];
+      pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(px * s, py * s) : ctx.lineTo(px * s, py * s)));
+      ctx.closePath();
+      ctx.fillStyle = '#9aa0a6';
+      ctx.fill();
+      iconStroke(ctx, s, 0.75);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.34, -s * 0.2);
+      ctx.lineTo(s * 0.16, s * 0.12);
+      ctx.lineTo(-s * 0.06, s * 0.62);
+      ctx.lineWidth = Math.max(1, s * 0.09);
+      ctx.strokeStyle = 'rgba(50, 56, 62, 0.55)';
+      ctx.stroke();
+      break;
+    }
+    case 'missile': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 1.02);
+      ctx.quadraticCurveTo(s * 0.42, -s * 0.5, s * 0.42, s * 0.4);
+      ctx.lineTo(s * 0.42, s * 0.66);
+      ctx.lineTo(-s * 0.42, s * 0.66);
+      ctx.lineTo(-s * 0.42, s * 0.4);
+      ctx.quadraticCurveTo(-s * 0.42, -s * 0.5, 0, -s * 1.02);
+      ctx.closePath();
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fill();
+      iconStroke(ctx, s, 0.75);
+      // 红色弹头
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 1.02);
+      ctx.quadraticCurveTo(s * 0.32, -s * 0.62, s * 0.24, -s * 0.34);
+      ctx.lineTo(-s * 0.24, -s * 0.34);
+      ctx.quadraticCurveTo(-s * 0.32, -s * 0.62, 0, -s * 1.02);
+      ctx.closePath();
+      ctx.fillStyle = '#e05252';
+      ctx.fill();
+      break;
+    }
+    case 'web': {
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.92, 0, TAU);
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+      ctx.fill();
+      iconStroke(ctx, s, 0.5);
+      ctx.strokeStyle = 'rgba(120, 130, 142, 0.65)';
+      ctx.lineWidth = Math.max(1, s * 0.07);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI;
+        ctx.moveTo(-Math.cos(a) * s * 0.8, -Math.sin(a) * s * 0.8);
+        ctx.lineTo(Math.cos(a) * s * 0.8, Math.sin(a) * s * 0.8);
+      }
+      for (const rr of [0.35, 0.62]) {
+        ctx.moveTo(Math.cos(0) * s * rr, Math.sin(0) * s * rr);
+        ctx.arc(0, 0, s * rr, 0, TAU);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'faster': {
+      // 单个淡色小泡泡
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.8, 0, TAU);
+      ctx.fillStyle = '#f2efc2';
+      ctx.fill();
+      iconStroke(ctx, s, 0.5);
+      ctx.beginPath();
+      ctx.arc(-s * 0.24, -s * 0.26, s * 0.26, 0, TAU);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fill();
+      break;
+    }
+    case 'honey': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.98);
+      ctx.bezierCurveTo(s * 0.86, -s * 0.1, s * 0.66, s * 0.9, 0, s * 0.9);
+      ctx.bezierCurveTo(-s * 0.66, s * 0.9, -s * 0.86, -s * 0.1, 0, -s * 0.98);
+      ctx.fillStyle = '#f3b23a';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      ctx.beginPath();
+      ctx.ellipse(-s * 0.24, s * 0.16, s * 0.17, s * 0.26, -0.4, 0, TAU);
+      ctx.fillStyle = 'rgba(255, 244, 200, 0.8)';
+      ctx.fill();
+      break;
+    }
+    case 'peas': {
+      ctx.save();
+      ctx.rotate(-0.5);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.42, s * 1.0, 0, 0, TAU);
+      ctx.fillStyle = '#57b95a';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+      ctx.fillStyle = '#9ee27f';
+      for (const dy of [-0.42, 0, 0.42]) {
+        ctx.beginPath();
+        ctx.arc(0, dy * s, s * 0.32, 0, TAU);
+        ctx.fill();
+        iconStroke(ctx, s * 0.72, 0.5);
+      }
+      ctx.restore();
+      break;
+    }
+    case 'magnet': {
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.62, Math.PI, TAU);
+      const lw = Math.max(2, s * 0.42);
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = '#d9494f';
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+      ctx.fillStyle = '#dfe3e8';
+      ctx.fillRect(-s * 0.62 - lw / 2, -s * 0.02, lw, s * 0.4);
+      ctx.fillRect(s * 0.62 - lw / 2, -s * 0.02, lw, s * 0.4);
+      break;
+    }
+    case 'wing': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.9);
+      ctx.quadraticCurveTo(s * 0.95, -s * 0.45, s * 0.5, s * 0.5);
+      ctx.quadraticCurveTo(s * 0.1, s * 0.2, 0, s * 0.62);
+      ctx.quadraticCurveTo(-s * 0.1, s * 0.2, -s * 0.5, s * 0.5);
+      ctx.quadraticCurveTo(-s * 0.95, -s * 0.45, 0, -s * 0.9);
+      ctx.fillStyle = '#eef6ff';
+      ctx.fill();
+      iconStroke(ctx, s, 0.5);
+      break;
+    }
+    case 'glass': {
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.62, -s * 0.05);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.62, -s * 0.05);
+      ctx.closePath();
+      ctx.fillStyle = '#d8ecff';
+      ctx.fill();
+      iconStroke(ctx, s, 0.6);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.18, -s * 0.5);
+      ctx.lineTo(s * 0.2, s * 0.05);
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.stroke();
+      break;
+    }
+    case 'clover': {
+      ctx.strokeStyle = '#2f7a3a';
+      ctx.lineWidth = Math.max(1.5, s * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.2);
+      ctx.lineTo(s * 0.1, s * 0.95);
+      ctx.stroke();
+      for (const a of [-Math.PI / 2, Math.PI / 6, (5 * Math.PI) / 6]) {
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * s * 0.36, Math.sin(a) * s * 0.36, s * 0.4, 0, TAU);
+        ctx.fillStyle = '#5ac263';
+        ctx.fill();
+        iconStroke(ctx, s * 0.8, 0.6);
+      }
+      break;
+    }
+    default: {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.62, s * 0.92, 0, 0, TAU);
+      ctx.fillStyle = PETAL_FILL[petalId] ?? '#ffffff';
+      ctx.fill();
+      iconStroke(ctx, s, 0.7);
+    }
+  }
+  ctx.restore();
+}
+
+/** 天赋/技能圆形徽章(双层圆环 + 白色符号,对齐 florr 天赋图标) */
+export function drawTalentBadge(
+  ctx: CanvasRenderingContext2D,
+  kind: 'speed' | 'magnet' | 'heal' | 'hp' | 'dmg',
+  cx: number,
+  cy: number,
+  r: number,
+): void {
+  const palette: Record<string, [string, string]> = {
+    speed: ['#4b8ee0', '#2f66ad'],
+    magnet: ['#e0574f', '#ad3a33'],
+    heal: ['#5cc45f', '#3a8f3d'],
+    hp: ['#e0568a', '#ab3462'],
+    dmg: ['#e0903c', '#ad6a24'],
+  };
+  const [inner, outer] = palette[kind] ?? ['#9aa0a6', '#6d7379'];
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fillStyle = outer;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.82, 0, TAU);
+  ctx.fillStyle = inner;
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.6, r * 0.16);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  switch (kind) {
+    case 'speed': {
+      ctx.beginPath();
+      ctx.moveTo(r * 0.16, -r * 0.6);
+      ctx.lineTo(-r * 0.3, r * 0.06);
+      ctx.lineTo(r * 0.02, r * 0.06);
+      ctx.lineTo(-r * 0.16, r * 0.62);
+      ctx.lineTo(r * 0.34, -r * 0.06);
+      ctx.lineTo(r * 0.02, -r * 0.06);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'magnet': {
+      ctx.beginPath();
+      ctx.arc(0, r * 0.06, r * 0.42, Math.PI, TAU);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.42, r * 0.06);
+      ctx.lineTo(-r * 0.42, r * 0.5);
+      ctx.moveTo(r * 0.42, r * 0.06);
+      ctx.lineTo(r * 0.42, r * 0.5);
+      ctx.stroke();
+      break;
+    }
+    case 'heal': {
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.5);
+      ctx.lineTo(0, r * 0.5);
+      ctx.moveTo(-r * 0.5, 0);
+      ctx.lineTo(r * 0.5, 0);
+      ctx.stroke();
+      break;
+    }
+    case 'hp': {
+      ctx.beginPath();
+      ctx.moveTo(0, r * 0.55);
+      ctx.bezierCurveTo(-r * 0.75, r * 0.02, -r * 0.42, -r * 0.62, 0, -r * 0.2);
+      ctx.bezierCurveTo(r * 0.42, -r * 0.62, r * 0.75, r * 0.02, 0, r * 0.55);
+      ctx.fill();
+      break;
+    }
+    case 'dmg': {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.45, r * 0.45);
+      ctx.lineTo(r * 0.45, -r * 0.45);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(r * 0.1, -r * 0.5);
+      ctx.lineTo(r * 0.5, -r * 0.5);
+      ctx.lineTo(r * 0.5, -r * 0.1);
+      ctx.stroke();
+      break;
+    }
+  }
+  ctx.restore();
 }

@@ -4,6 +4,8 @@ import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import { TAU } from '@shared/math';
 import { DEFAULT_SERVER_ID, SERVERS, getServer } from '@shared/servers';
+import { BOULDERS, LAKE, PLAYER_SPAWN, blocked } from '@shared/garden';
+import { getGardenCanvas } from '@client/gardenRender';
 import { Camera } from '@client/camera';
 import { Input } from '@client/input';
 import { Net, type GameConn } from '@client/net';
@@ -21,7 +23,19 @@ const dpr = Math.min(2, window.devicePixelRatio || 1);
 const SOLO = !new URLSearchParams(location.search).has('online');
 // 默认单机:模拟在浏览器内跑,无需服务器即可 Play;带 ?online 时切回联机模式。
 const net: GameConn = SOLO ? new LocalSim() : new Net();
-if (SOLO) (window as unknown as { __glorr?: GameConn }).__glorr = net;
+if (SOLO) {
+  const g = window as unknown as { __glorr?: GameConn; __map?: unknown; __gardenCanvas?: HTMLCanvasElement | null };
+  g.__glorr = net;
+  // 测试用地图诊断信息
+  g.__map = {
+    boulders: BOULDERS.length,
+    lake: LAKE,
+    spawn: PLAYER_SPAWN,
+    blockedLake: blocked(0, 0, 0),
+    blockedSpawn: blocked(PLAYER_SPAWN[0], PLAYER_SPAWN[1], 26),
+  };
+  g.__gardenCanvas = getGardenCanvas();
+}
 const sfx = new Sfx();
 const particles = new Particles();
 const camera = new Camera(window.innerWidth, window.innerHeight);
@@ -91,6 +105,9 @@ const ui = new Ui(net, {
     })();
   },
   onSelectServer: (id) => void switchServer(id),
+  onTalents: (t) => {
+    if (SOLO) (net as LocalSim).applyTalents(t);
+  },
 });
 
 /** 确保已连接到当前服务器;失败时在账号页显示可操作的错误 */
@@ -238,12 +255,14 @@ net.onYou = (s) => {
 
 net.onEv = (k, v) => {
   switch (k) {
-    case 'levelup':
+    case 'levelup': {
       renderer.addFloat(self.x, self.y, `等级提升 ${v ?? ''}`, '#ffe65d');
       sfx.play('levelup');
       particles.ring(self.x, self.y, '#ffe65d', 70);
-      ui.toast(`升级到 Lv.${v ?? ''}`);
+      const gain = ui.grantTp(v ?? 0);
+      ui.toast(`升级到 Lv.${v ?? ''},获得 ${gain} 天赋点`);
       break;
+    }
     case 'death': {
       sfx.play('death');
       particles.burst(self.x, self.y, '#ff8fb3', 26, 230, 5);
@@ -446,6 +465,13 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('[data-talent]')) {
   b.addEventListener('click', () => useTalent(b.dataset.talent as 'speed' | 'magnet' | 'heal'));
 }
 
+/** 攻击/防御姿态:右键或 Shift = 收拢(-1),左键或空格 = 张开(+1),否则 0 */
+function currentStance(): -1 | 0 | 1 {
+  if (input.mouseRight || input.isDown('shift')) return -1;
+  if (input.mouseLeft || input.isDown(' ')) return 1;
+  return 0;
+}
+
 gardenBtn.addEventListener('click', () => {
   if (!readyBtn.disabled) {
     ui.toast('先点击「准备就绪」');
@@ -460,6 +486,7 @@ async function play(): Promise<void> {
     running = true;
     ui.hideMenu();
     menuBg.stop();
+    ui.loadTalents(); // 恢复天赋点与已点天赋并应用到本地模拟
     return;
   }
   const server = getServer(currentServerId) ?? SERVERS[0];
@@ -516,6 +543,10 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const craftOpen = !document.getElementById('craftmodal')!.classList.contains('hidden');
     const settingsOpen = !document.getElementById('settingsmodal')!.classList.contains('hidden');
+    const panelOpen =
+      !document.getElementById('invmodal')!.classList.contains('hidden') ||
+      !document.getElementById('talentmodal')!.classList.contains('hidden') ||
+      !document.getElementById('bestmodal')!.classList.contains('hidden');
     (document.activeElement as HTMLElement | null)?.blur();
     if (craftOpen) {
       ui.closeCraft();
@@ -527,10 +558,31 @@ window.addEventListener('keydown', (e) => {
       if (paused) pauseScreen.classList.remove('hidden');
       return;
     }
+    if (panelOpen) {
+      ui.closePanels();
+      return;
+    }
     if (running) setPaused(!paused);
     return;
   }
   if (ui.isChatFocused()) return;
+  // 左下功能键:背包 / 天赋 / 合成 / 图鉴(对齐 florr)
+  if (running && (e.key === 'b' || e.key === 'B')) {
+    ui.toggleInventory();
+    return;
+  }
+  if (running && (e.key === 't' || e.key === 'T')) {
+    ui.toggleTalents();
+    return;
+  }
+  if (running && (e.key === 'f' || e.key === 'F')) {
+    ui.toggleCraft();
+    return;
+  }
+  if (running && (e.key === 'v' || e.key === 'V')) {
+    ui.toggleBestiary();
+    return;
+  }
   if (e.key === 'z' || e.key === 'Z') {
     useTalent('speed');
     return;
@@ -573,7 +625,7 @@ function frame(): void {
     if (inputAcc >= 0.05 && s && !s.dead && !chatFocused) {
       inputAcc = 0;
       const [dx, dy] = input.vector(self.x, self.y, camera);
-      net.send({ t: 'in', x: dx, y: dy });
+      net.send({ t: 'in', x: dx, y: dy, expand: currentStance() });
     }
   }
 
