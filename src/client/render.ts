@@ -4,7 +4,7 @@ import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
 import type { GameConn } from '@client/net';
-import { drawBar, drawFlower, drawMob, drawPetal } from '@client/sprites';
+import { drawDirectionArrow, drawFlower, drawMob, drawPetal } from '@client/sprites';
 import { clamp, hash2, lerp, smoothstep, TAU } from '@shared/math';
 
 export interface SelfView {
@@ -295,6 +295,9 @@ export class Renderer {
       ctx.restore();
     }
 
+    // 朝向箭头(花朵下方,指示移动方向)
+    drawDirectionArrow(ctx, self.x, self.y, self.ang, 0.9);
+
     // 自己(最上层)
     this.drawPlayerWithPetals(ctx, self.x, self.y, self.ang, '', self.hpPct, net.self?.slotList ?? [], time, true, self.invuln ? 1 : 0, self.slotAngles);
   }
@@ -335,11 +338,8 @@ export class Renderer {
     drawFlower(ctx, x, y, 22, ang, {
       invuln: invulnFlag > 0,
       name: name || undefined,
-      hpPct: isSelf ? undefined : hpPct,
+      hpPct,
     });
-    if (isSelf && hpPct < 0.999) {
-      drawBar(ctx, x, y - 34, 52, hpPct);
-    }
   }
 
   private inView(cam: Camera, x: number, y: number, pad: number): boolean {

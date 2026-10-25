@@ -1,9 +1,27 @@
 // glorr 矢量美术:花瓣 / 生物 / 花朵,全部代码绘制,无外部图片资源
-import { RARITY_COLORS, RARITY_DARK } from '@shared/constants';
+import { RARITY_COLORS } from '@shared/constants';
 import { MOBS } from '@shared/data/mobs';
 import { hash2, TAU } from '@shared/math';
 
 const INK = '#2b2f33';
+
+/** 花瓣本体固定色(稀有度用作槽位底色/描边,而非花瓣颜色) */
+const PETAL_FILL: Record<string, string> = {
+  basic: '#ffffff',
+  fast: '#f2f2f2',
+  heavy: '#b8b8b8',
+  leaf: '#5cb85c',
+  rose: '#e35d7a',
+  stinger: '#f2d34a',
+  rock: '#9aa0a6',
+  missile: '#e6e6e6',
+  web: '#e8eef6',
+  faster: '#7fd8ff',
+  honey: '#ffcb45',
+  peas: '#7ed957',
+  magnet: '#d9534f',
+  wing: '#cfe8ff',
+};
 
 /** 花瓣形状路径(以原点为中心,朝上,-y 为尖) */
 function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
@@ -107,8 +125,11 @@ function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
       ctx.quadraticCurveTo(-s * 0.95, -s * 0.3, 0, -s);
       break;
     }
+    case 'basic':
+      // 旧版 florr 的 Basic 是白色圆形花瓣
+      ctx.arc(0, 0, s * 0.62, 0, TAU);
+      break;
     default: {
-      // basic:椭圆瓣
       ctx.ellipse(0, -s * 0.12, s * 0.55, s * 0.88, 0, 0, TAU);
     }
   }
@@ -135,11 +156,12 @@ export function drawPetal(
     ctx.shadowBlur = 10;
   }
   petalPath(ctx, petalId, size);
-  ctx.fillStyle = RARITY_COLORS[rarity];
+  const fill = PETAL_FILL[petalId] ?? RARITY_COLORS[rarity];
+  ctx.fillStyle = fill;
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.lineWidth = Math.max(1.2, size * 0.1);
-  ctx.strokeStyle = RARITY_DARK[rarity];
+  ctx.strokeStyle = shade(fill, -60);
   ctx.stroke();
 
   // 细节装饰
@@ -217,30 +239,32 @@ export function drawFlower(
   ctx.fill();
   ctx.stroke();
 
-  // 表情(朝 ang)
-  const ex = Math.cos(ang) * r * 0.32;
-  const ey = Math.sin(ang) * r * 0.32;
-  const px = Math.cos(ang + Math.PI / 2) * r * 0.34;
-  const py = Math.sin(ang + Math.PI / 2) * r * 0.34;
-  ctx.fillStyle = '#3a2c10';
+  // 表情:始终正立(不随移动旋转),瞳孔略偏向朝向
+  const lookX = Math.cos(ang) * r * 0.06;
+  const lookY = Math.sin(ang) * r * 0.06;
+  ctx.fillStyle = '#2b2b2b';
   ctx.beginPath();
-  ctx.arc(ex + px, ey + py, r * 0.14, 0, TAU);
-  ctx.arc(ex - px, ey - py, r * 0.14, 0, TAU);
+  ctx.ellipse(-r * 0.22, -r * 0.04, r * 0.1, r * 0.15, 0, 0, TAU);
   ctx.fill();
-  // 嘴
-  ctx.strokeStyle = '#3a2c10';
-  ctx.lineWidth = 2;
   ctx.beginPath();
-  const mx = Math.cos(ang) * r * 0.34;
-  const my = Math.sin(ang) * r * 0.34;
-  const t1 = ang + 0.5;
-  const t2 = ang - 0.5;
-  ctx.moveTo(mx + Math.cos(t1) * r * 0.2, my + Math.sin(t1) * r * 0.2);
-  ctx.quadraticCurveTo(mx, my + Math.sin(ang) * r * 0.18, mx + Math.cos(t2) * r * 0.2, my + Math.sin(t2) * r * 0.2);
+  ctx.ellipse(r * 0.22, -r * 0.04, r * 0.1, r * 0.15, 0, 0, TAU);
+  ctx.fill();
+  // 眼睛高光
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.22 + lookX, -r * 0.1 + lookY, r * 0.035, 0, TAU);
+  ctx.arc(r * 0.22 + lookX, -r * 0.1 + lookY, r * 0.035, 0, TAU);
+  ctx.fill();
+  // 嘴(小小的皱眉)
+  ctx.strokeStyle = '#2b2b2b';
+  ctx.lineWidth = Math.max(1.6, r * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, r * 0.3);
+  ctx.quadraticCurveTo(0, r * 0.16, r * 0.18, r * 0.3);
   ctx.stroke();
   ctx.restore();
 
-  // 名字 + 血条
+  // 名字
   if (opts.name) {
     ctx.save();
     ctx.font = '600 12px system-ui, sans-serif';
@@ -252,24 +276,61 @@ export function drawFlower(
     ctx.fillText(opts.name, x, y - r - 16);
     ctx.restore();
   }
-  if (opts.hpPct !== undefined && opts.hpPct < 0.999) {
-    drawBar(ctx, x, y - r - 9, r * 2.2, opts.hpPct);
+  // 血条:始终在花朵正下方(与 florr 一致)
+  if (opts.hpPct !== undefined) {
+    drawBar(ctx, x, y + r + 7, r * 2.6, opts.hpPct);
   }
 }
 
-/** 血条 */
+/** 血条(黑底 + 圆角 + 描边,与 florr 一致) */
 export function drawBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, pct: number): void {
-  const h = 5;
+  const h = 6;
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.beginPath();
-  ctx.roundRect(x - w / 2, y, w, h, 2.5);
+  ctx.roundRect(x - w / 2 - 1, y - 1, w + 2, h + 2, 4);
+  ctx.fillStyle = 'rgba(18,18,18,0.85)';
   ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
   const p = Math.max(0, Math.min(1, pct));
   ctx.fillStyle = p > 0.5 ? '#5fd36e' : p > 0.25 ? '#e8c33a' : '#e05252';
   ctx.beginPath();
-  ctx.roundRect(x - w / 2 + 1, y + 1, (w - 2) * p, h - 2, 1.5);
+  ctx.roundRect(x - w / 2, y, w * p, h, 3);
   ctx.fill();
+  ctx.restore();
+}
+
+/** 行进方向箭头(从花朵指向移动方向,半透明绿) */
+export function drawDirectionArrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  ang: number,
+  alpha = 0.9,
+): void {
+  const len = 220;
+  const shaft = 9;
+  const headLen = 54;
+  const headW = 42;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.moveTo(0, -shaft);
+  ctx.lineTo(len - headLen, -shaft);
+  ctx.lineTo(len - headLen, -headW / 2);
+  ctx.lineTo(len, 0);
+  ctx.lineTo(len - headLen, headW / 2);
+  ctx.lineTo(len - headLen, shaft);
+  ctx.lineTo(0, shaft);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(74,140,74,0.55)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(30,80,30,0.35)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
   ctx.restore();
 }
 

@@ -68,6 +68,7 @@ function startSite(): Promise<http.Server> {
 interface Cdp {
   eval(expr: string): Promise<unknown>;
   exceptions: string[];
+  shot(file: string): Promise<void>;
   close(): void;
 }
 async function connectCdp(): Promise<Cdp> {
@@ -107,6 +108,7 @@ async function connectCdp(): Promise<Cdp> {
       ws.send(JSON.stringify({ id: mid, method, params }));
     });
   await send('Runtime.enable');
+  await send('Page.enable');
   return {
     exceptions,
     async eval(expr: string): Promise<unknown> {
@@ -118,6 +120,11 @@ async function connectCdp(): Promise<Cdp> {
       if (res.exceptionDetails) throw new Error(res.exceptionDetails.text);
       const raw = res.result?.result?.value;
       return raw === undefined ? undefined : JSON.parse(raw);
+    },
+    async shot(file: string): Promise<void> {
+      const res = (await send('Page.captureScreenshot', { format: 'png' })) as { result?: { data?: string } };
+      const b64 = res.result?.data;
+      if (b64) fs.writeFileSync(file, Buffer.from(b64, 'base64'));
     },
     close() {
       ws.close();
@@ -207,6 +214,13 @@ async function main(): Promise<void> {
 
     const slots = await cdp.eval(`document.querySelectorAll('#equiprow .eslot canvas').length`);
     allOk = check('花瓣槽位已渲染', typeof slots === 'number' && slots >= 5, `${slots} 个槽位`) && allOk;
+
+    // 朝右移动一下,截一张实机图(验证朝向箭头/花朵血条/花瓣颜色)
+    await cdp.eval(
+      `(() => { const o={clientX:1000,clientY:430,bubbles:true}; window.dispatchEvent(new MouseEvent('mousemove',o)); window.dispatchEvent(new PointerEvent('pointermove',o)); return true; })()`,
+    );
+    await new Promise((r) => setTimeout(r, 700));
+    await cdp.shot('/tmp/glorr-live.png');
 
     // ESC 暂停 / 冻结 / 设置期间冻结 / 继续
     const mobPosExpr = `(() => { const m=[...window.__glorr.ents.values()].find(e=>e.kind==='m'); return m?[Math.round(m.x*10)/10, Math.round(m.y*10)/10]:null; })()`;

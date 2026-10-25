@@ -86,6 +86,8 @@ interface DropEnt {
   x: number;
   y: number;
   bornAt: number;
+  /** 掉落物出现后约 0.5s 才可拾取(florr 机制) */
+  pickableAt: number;
 }
 interface ProjEnt {
   id: number;
@@ -378,10 +380,14 @@ export class LocalSim implements GameConn {
         }
       }
 
-      // 接触伤害
+      // 接触:花瓣挡在中间时只消耗花瓣,不直接咬到花心
       m.attackCd -= dt;
       if (!this.dead && dist(m.x, m.y, this.x, this.y) < def.radius + C.PLAYER.radius * 0.8) {
-        if (m.attackCd <= 0) {
+        if (this.petalAt(m.x, m.y, def.radius)) {
+          const a = Math.atan2(m.y - this.y, m.x - this.x);
+          m.x += Math.cos(a) * 8;
+          m.y += Math.sin(a) * 8;
+        } else if (m.attackCd <= 0) {
           m.attackCd = 0.9;
           this.damagePlayer(def.dmg * dmgMult, m.x, m.y);
         }
@@ -495,7 +501,7 @@ export class LocalSim implements GameConn {
 
   private spawnDrop(petalId: string, rarity: number, x: number, y: number): void {
     const id = this.nextId++;
-    this.drops.set(id, { id, petalId, rarity, x, y, bornAt: this.time });
+    this.drops.set(id, { id, petalId, rarity, x, y, bornAt: this.time, pickableAt: this.time + 0.5 });
   }
 
   // ---------- 花瓣 / 弹丸 / 蛛网 ----------
@@ -543,6 +549,10 @@ export class LocalSim implements GameConn {
           if (dist2(m.x, m.y, px, py) < rr * rr) {
             s.hitCd = 0.35;
             this.damageMob(m, petalDmg(def, s.rarity));
+            // 碰撞击退:怪物被花瓣顶开一点
+            const kb = Math.atan2(m.y - py, m.x - px);
+            m.x += Math.cos(kb) * 6;
+            m.y += Math.sin(kb) * 6;
             if (def.onHitHeal) this.hp = Math.min(this.maxHp, this.hp + petalOnHitHeal(def, s.rarity));
             s.hp -= md.dmg * C.PLAYER.petalWear;
             if (s.hp <= 0) {
@@ -568,6 +578,24 @@ export class LocalSim implements GameConn {
         s.hp = s.maxHp;
       }
     }
+  }
+
+  /** 查询某点是否落在某个装备花瓣的命中范围内(用于拦截怪物/弹幕) */
+  private petalAt(x: number, y: number, pad: number): { s: SlotState; i: number } | null {
+    const loadout = this.slotList;
+    const R = orbitRadius(loadout);
+    const rot = rotationSpeed(loadout);
+    const count = Math.max(1, loadout.length);
+    for (let i = 0; i < C.MAX_SLOTS; i++) {
+      const s = loadout[i];
+      if (!s || s.broken) continue;
+      const a = (i / count) * TAU + rot * this.time;
+      const px = this.x + Math.cos(a) * R;
+      const py = this.y + Math.sin(a) * R;
+      const rr = pad + 12;
+      if (dist2(x, y, px, py) < rr * rr) return { s, i };
+    }
+    return null;
   }
 
   private spawnProj(
@@ -596,6 +624,18 @@ export class LocalSim implements GameConn {
         continue;
       }
       if (p.fromMob) {
+        // 花瓣可拦截敌方弹幕(防御)
+        const blocked = this.petalAt(p.x, p.y, 8);
+        if (blocked) {
+          blocked.s.hp -= p.dmg * C.PLAYER.petalWear;
+          if (blocked.s.hp <= 0) {
+            blocked.s.broken = true;
+            blocked.s.regenT = reloadFor(getPetal(blocked.s.id));
+            this.onEv?.('break', blocked.i);
+          }
+          this.projs.delete(p.id);
+          continue;
+        }
         if (!this.dead && dist(p.x, p.y, this.x, this.y) < C.PLAYER.radius + 5) {
           this.damagePlayer(p.dmg, p.x, p.y);
           this.projs.delete(p.id);
@@ -643,6 +683,7 @@ export class LocalSim implements GameConn {
         continue;
       }
       if (this.dead) continue;
+      if (this.time < d.pickableAt) continue;
       if (this.inv.length >= C.PLAYER.invCap) continue;
       if (dist2(d.x, d.y, this.x, this.y) <= pr * pr) {
         this.inv.push({ uid: this.nextUid++, id: d.petalId, rarity: d.rarity });
