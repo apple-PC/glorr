@@ -1,63 +1,58 @@
-// glorr 小地图
-import { RINGS } from '@shared/constants';
+// glorr 小地图(方形花园)
+import { GARDEN_HALF, WALLS, ZONES } from '@shared/garden';
 import { TAU } from '@shared/math';
 import type { GameConn } from '@client/net';
 
-export function drawMinimap(canvas: HTMLCanvasElement, net: GameConn, mapRadius: number, safeRadius: number): void {
+const TINT: Record<string, string> = {
+  tr: 'rgba(255,220,120,0.20)',
+  br: 'rgba(120,180,255,0.20)',
+  bl: 'rgba(255,140,80,0.20)',
+  blroom: 'rgba(255,200,80,0.16)',
+  myth: 'rgba(160,120,255,0.22)',
+  spiral: 'rgba(220,120,255,0.26)',
+};
+
+export function drawMinimap(canvas: HTMLCanvasElement, net: GameConn, _mapRadius: number, _safeRadius: number): void {
   const c = canvas.getContext('2d');
   if (!c) return;
   const size = canvas.width;
   const cx = size / 2;
   const cy = size / 2;
-  const R = size / 2 - 8;
-  const scale = R / mapRadius;
+  const scale = (size / 2 - 8) / GARDEN_HALF;
 
   c.clearRect(0, 0, size, size);
 
   // 底盘
-  c.fillStyle = 'rgba(28,43,26,0.92)';
-  c.beginPath();
-  c.arc(cx, cy, R + 3, 0, TAU);
-  c.fill();
+  c.fillStyle = 'rgba(40,90,45,0.95)';
+  c.fillRect(4, 4, size - 8, size - 8);
 
-  // 安全区
-  c.fillStyle = 'rgba(200,230,160,0.22)';
-  c.beginPath();
-  c.arc(cx, cy, Math.max(2, safeRadius * scale), 0, TAU);
-  c.fill();
-
-  // 分区边界
-  c.strokeStyle = 'rgba(255,255,255,0.16)';
-  c.lineWidth = 1;
-  for (const ring of RINGS) {
-    if (ring.r1 <= 0) continue;
-    c.beginPath();
-    c.arc(cx, cy, ring.r1 * scale, 0, TAU);
-    c.stroke();
+  // 区域淡色
+  for (const z of ZONES) {
+    const t = TINT[z.id];
+    if (!t) continue;
+    c.fillStyle = t;
+    c.fillRect(cx + z.rect.x0 * scale, cy + z.rect.y0 * scale, (z.rect.x1 - z.rect.x0) * scale, (z.rect.y1 - z.rect.y0) * scale);
   }
 
-  // PvP 边界(第一个开启 PvP 的环内沿)
-  const pvpRing = RINGS.find((r) => r.pvp);
-  if (pvpRing) {
-    c.save();
-    c.strokeStyle = 'rgba(255,110,110,0.85)';
-    c.setLineDash([4, 4]);
-    c.beginPath();
-    c.arc(cx, cy, pvpRing.r0 * scale, 0, TAU);
-    c.stroke();
-    c.restore();
+  // 中央湖
+  c.fillStyle = '#3f7fd0';
+  c.beginPath();
+  c.arc(cx, cy, 300 * scale, 0, TAU);
+  c.fill();
+
+  // 墙体
+  c.fillStyle = '#6b4a2f';
+  for (const w of WALLS) {
+    c.fillRect(cx + w.x0 * scale, cy + w.y0 * scale, Math.max(1, (w.x1 - w.x0) * scale), Math.max(1, (w.y1 - w.y0) * scale));
   }
 
   // 玩家
-  const selfEnt = net.selfEnt();
   for (const [id, e] of net.ents) {
     if (e.kind !== 'p') continue;
     const isSelf = id === net.selfId;
-    const x = cx + e.x * scale;
-    const y = cy + e.y * scale;
-    c.fillStyle = isSelf ? '#ffffff' : 'rgba(255,235,160,0.9)';
+    c.fillStyle = isSelf ? '#ffffff' : 'rgba(255,235,160,0.95)';
     c.beginPath();
-    c.arc(x, y, isSelf ? 3.4 : 2.4, 0, TAU);
+    c.arc(cx + e.x * scale, cy + e.y * scale, isSelf ? 3.2 : 2.2, 0, TAU);
     c.fill();
     if (isSelf) {
       c.strokeStyle = 'rgba(0,0,0,0.6)';
@@ -67,9 +62,7 @@ export function drawMinimap(canvas: HTMLCanvasElement, net: GameConn, mapRadius:
   }
 
   // 边框
-  c.strokeStyle = 'rgba(255,255,255,0.35)';
+  c.strokeStyle = 'rgba(255,255,255,0.6)';
   c.lineWidth = 2;
-  c.beginPath();
-  c.arc(cx, cy, R, 0, TAU);
-  c.stroke();
+  c.strokeRect(4, 4, size - 8, size - 8);
 }

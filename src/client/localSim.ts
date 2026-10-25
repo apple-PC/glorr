@@ -1,6 +1,7 @@
 // glorr 单机本地模拟:在浏览器内跑完整权威模拟(怪物 AI / 花瓣轨道 / 碰撞 / 掉落 / 合成 / 升级 / 背包)
 // 实现与 Net 相同的 GameConn 公共接口,渲染层与 UI 无需感知是单机还是联机。
 import * as C from '@shared/constants';
+import { blocked, pushOut, randomSpawnPoint } from '@shared/garden';
 import { getMob, SPECIES_INDEX } from '@shared/data/mobs';
 import {
   getPetal,
@@ -147,6 +148,8 @@ export class LocalSim implements GameConn {
   private invulnUntil = 0;
   private respawnAt = 0;
   private slowUntil = 0;
+  private poisonUntil = 0;
+  private poisonRate = 0;
   private speedUntil = 0;
   private magnetUntil = 0;
   private healUntil = 0;
@@ -283,13 +286,12 @@ export class LocalSim implements GameConn {
     }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    const r = Math.hypot(this.x, this.y);
-    const maxR = C.WORLD.radius - 40;
-    if (r > maxR) {
-      this.x = (this.x / r) * maxR;
-      this.y = (this.y / r) * maxR;
-      this.vx *= 0.4;
-      this.vy *= 0.4;
+    const [nx, ny] = pushOut(this.x, this.y, C.PLAYER.radius);
+    if (nx !== this.x || ny !== this.y) {
+      this.x = nx;
+      this.y = ny;
+      this.vx *= 0.55;
+      this.vy *= 0.55;
     }
     // 治疗类花瓣持续回血
     let heal = 0;
@@ -300,6 +302,11 @@ export class LocalSim implements GameConn {
     }
     if (heal > 0) this.hp = Math.min(this.maxHp, this.hp + heal * dt);
     if (this.time < this.healUntil) this.hp = Math.min(this.maxHp, this.hp + 30 * dt);
+    // 中毒(蜘蛛)
+    if (this.time < this.poisonUntil) {
+      this.hp -= this.poisonRate * dt;
+      if (this.hp <= 0) this.killPlayer();
+    }
   }
 
   private damagePlayer(dmg: number, fromX: number, fromY: number): void {
@@ -370,20 +377,41 @@ export class LocalSim implements GameConn {
     for (const m of this.mobs.values()) {
       const def = getMob(m.defId);
       const dmgMult = C.MOB_DMG_MULT[m.rarity] ?? 1;
+      const behavior: 'passive' | 'neutral' | 'aggressive' | 'static' =
+        def.behavior === 'passive' && def.neutralFrom !== undefined && m.rarity >= def.neutralFrom
+          ? 'neutral'
+          : def.behavior;
       let hasTarget = false;
-      if (def.behavior === 'aggressive') {
+      if (behavior === 'aggressive') {
         if (!this.dead && dist(m.x, m.y, this.x, this.y) <= def.aggro) hasTarget = true;
-      } else if (def.behavior === 'neutral') {
+      } else if (behavior === 'neutral') {
         if (now < m.retaliateUntil && !this.dead) hasTarget = true;
       }
       m.target = hasTarget ? this.selfId : 0;
 
-      if (def.behavior !== 'static' && def.speed > 0) {
+      if (behavior !== 'static' && def.speed > 0) {
         if (m.target) {
           const a = Math.atan2(this.y - m.y, this.x - m.x);
-          m.ang = a;
-          m.x += Math.cos(a) * def.speed * dt;
-          m.y += Math.sin(a) * def.speed * dt;
+          const d = dist(m.x, m.y, this.x, this.y);
+          if (def.ranged) {
+            // 黄蜂等远程怪:保持距离
+            const want = def.ranged.range * 0.62;
+            if (d < want * 0.85) {
+              m.ang = a + Math.PI;
+              m.x -= Math.cos(a) * def.speed * dt;
+              m.y -= Math.sin(a) * def.speed * dt;
+            } else if (d > def.ranged.range * 0.95) {
+              m.ang = a;
+              m.x += Math.cos(a) * def.speed * dt;
+              m.y += Math.sin(a) * def.speed * dt;
+            } else {
+              m.ang = a;
+            }
+          } else {
+            m.ang = a;
+            m.x += Math.cos(a) * def.speed * dt;
+            m.y += Math.sin(a) * def.speed * dt;
+          }
         } else {
           m.wanderT -= dt;
           if (m.wanderT <= 0) {
@@ -394,12 +422,9 @@ export class LocalSim implements GameConn {
           m.x += Math.cos(m.wanderAng) * def.speed * 0.35 * dt;
           m.y += Math.sin(m.wanderAng) * def.speed * 0.35 * dt;
         }
-        const rr = Math.hypot(m.x, m.y);
-        const maxR = C.WORLD.radius - 30;
-        if (rr > maxR) {
-          m.x = (m.x / rr) * maxR;
-          m.y = (m.y / rr) * maxR;
-        }
+        const [px, py] = pushOut(m.x, m.y, Math.min(26, def.radius));
+        m.x = px;
+        m.y = py;
       }
 
       // 接触:花瓣挡在中间时只消耗花瓣,不直接咬到花心
@@ -412,6 +437,10 @@ export class LocalSim implements GameConn {
         } else if (m.attackCd <= 0) {
           m.attackCd = 0.9;
           this.damagePlayer(def.dmg * dmgMult, m.x, m.y);
+          if (def.poison) {
+            this.poisonRate = 15 * dmgMult;
+            this.poisonUntil = this.time + 3;
+          }
         }
       }
 
@@ -437,18 +466,14 @@ export class LocalSim implements GameConn {
   }
 
   private maintainMobs(): void {
-    let total = this.mobs.size;
-    const target = Math.min(140, C.RINGS.reduce((a, r) => a + r.density, 0));
-    if (total >= target) return;
+    const target = 150;
+    if (this.mobs.size >= target) return;
     for (let i = 0; i < 3 && this.mobs.size < target; i++) {
-      const ring = C.RINGS[1 + Math.floor(Math.random() * (C.RINGS.length - 1))];
-      if (!ring || !ring.species.length) continue;
-      const a = Math.random() * TAU;
-      const r = rand(ring.r0 + 20, ring.r1 - 20);
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      const speciesId = ring.species[Math.floor(Math.random() * ring.species.length)];
-      const rarity = weightedPick(ring.rarityW);
+      const spot = randomSpawnPoint();
+      if (!spot) continue;
+      const speciesId = spot.zone.species[Math.floor(Math.random() * spot.zone.species.length)];
+      if (!speciesId) continue;
+      const rarity = weightedPick(spot.zone.rarityW);
       const hpMult = C.MOB_HP_MULT[rarity] ?? 1;
       const def = getMob(speciesId);
       const id = this.nextId++;
@@ -459,8 +484,8 @@ export class LocalSim implements GameConn {
         rarity,
         hp: def.hp * hpMult,
         maxHp: def.hp * hpMult,
-        x,
-        y,
+        x: spot.x,
+        y: spot.y,
         ang: Math.random() * TAU,
         target: 0,
         retaliateUntil: 0,
@@ -647,6 +672,10 @@ export class LocalSim implements GameConn {
       p.y += dy;
       p.traveled += Math.hypot(dx, dy);
       if (p.traveled > p.range) {
+        this.projs.delete(p.id);
+        continue;
+      }
+      if (blocked(p.x, p.y, 4)) {
         this.projs.delete(p.id);
         continue;
       }

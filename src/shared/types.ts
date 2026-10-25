@@ -51,6 +51,10 @@ export interface MobDef {
   armor: number;    // 固定减伤
   behavior: MobBehavior;
   aggro: number;    // 索敌半径
+  /** 达到该稀有度后由被动转为中立 */
+  neutralFrom?: number;
+  /** 普通稀有度下的总毒量(有则攻击附带中毒) */
+  poison?: number;
   /** 远程攻击参数 */
   ranged?: { dmg: number; speed: number; cd: number; range: number };
   color: string;

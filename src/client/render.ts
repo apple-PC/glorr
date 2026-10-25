@@ -1,5 +1,6 @@
 // glorr 世界渲染:背景 / 实体 / 粒子 / 浮动文字
-import { DROP_DESPAWN, RARITY_COLORS, RINGS, WORLD } from '@shared/constants';
+import { DROP_DESPAWN, RARITY_COLORS } from '@shared/constants';
+import { GARDEN_HALF, SAFE_RADIUS, WALLS, ZONES } from '@shared/garden';
 import { MOBS } from '@shared/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@shared/data/petals';
 import type { Camera } from '@client/camera';
@@ -24,7 +25,14 @@ export interface FloatText {
   color: string;
 }
 
-const RING_TINTS = ['#66bd72', '#5fb76c', '#59b167', '#53aa61', '#4da45c', '#479e56', '#419851', '#3b924b', '#358c46'];
+const ZONE_TINT: Record<string, string> = {
+  tr: 'rgba(255,220,120,0.05)',
+  br: 'rgba(120,180,255,0.05)',
+  bl: 'rgba(255,140,80,0.05)',
+  blroom: 'rgba(255,200,80,0.04)',
+  myth: 'rgba(160,120,255,0.06)',
+  spiral: 'rgba(220,120,255,0.07)',
+};
 
 export class Renderer {
   private mobAngles = new Map<number, number>();
@@ -93,38 +101,76 @@ export class Renderer {
     const x1 = cam.x + halfW;
     const y0 = cam.y - halfH;
     const y1 = cam.y + halfH;
+    const H = GARDEN_HALF;
 
-    // 环形分区色带
-    for (let i = 0; i < RINGS.length; i++) {
-      const ring = RINGS[i];
-      if (ring.r1 < 1) continue;
-      ctx.fillStyle = i === 0 ? RING_TINTS[0] : RING_TINTS[Math.min(i, RING_TINTS.length - 1)];
-      ctx.beginPath();
-      ctx.arc(0, 0, ring.r1, 0, TAU);
-      if (ring.r0 > 0) ctx.arc(0, 0, ring.r0, 0, TAU, true);
-      ctx.fill();
+    // 世界底色
+    ctx.fillStyle = '#3f9e57';
+    ctx.fillRect(-H, -H, H * 2, H * 2);
+
+    // 同心方形分区色带
+    const bands: [number, string][] = [
+      [1650, 'rgba(255,255,255,0.03)'],
+      [2450, 'rgba(0,0,0,0.03)'],
+      [H, 'rgba(0,0,0,0.06)'],
+    ];
+    for (const [r, col] of bands) {
+      ctx.fillStyle = col;
+      ctx.fillRect(-r, -r, r * 2, r * 2);
     }
 
-    // 世界外
-    ctx.save();
+    // 特殊房间淡色
+    for (const zone of ZONES) {
+      const tint = ZONE_TINT[zone.id];
+      if (!tint) continue;
+      ctx.fillStyle = tint;
+      ctx.fillRect(zone.rect.x0, zone.rect.y0, zone.rect.x1 - zone.rect.x0, zone.rect.y1 - zone.rect.y0);
+    }
+
+    // 中央环形湖 + 中心小岛
+    ctx.fillStyle = '#3f7fd0';
     ctx.beginPath();
-    ctx.arc(0, 0, WORLD.radius, 0, TAU);
-    ctx.arc(0, 0, WORLD.radius + 4000, 0, TAU, true);
-    ctx.fillStyle = '#22331c';
+    ctx.arc(0, 0, 300, 0, TAU);
     ctx.fill();
-    ctx.restore();
-
-    // 安全区边界
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([14, 10]);
+    ctx.fillStyle = '#3f9e57';
     ctx.beginPath();
-    ctx.arc(0, 0, WORLD.safeRadius, 0, TAU);
-    ctx.stroke();
+    ctx.arc(0, 0, 190, 0, TAU);
+    ctx.fill();
+
+    // 世界外(粗边框)
+    ctx.strokeStyle = '#22331c';
+    ctx.lineWidth = 600;
+    ctx.strokeRect(-H - 300, -H - 300, (H + 300) * 2, (H + 300) * 2);
+
+    // 土墙/障碍
+    for (const wl of WALLS) {
+      if (wl.x1 < x0 - 80 || wl.x0 > x1 + 80 || wl.y1 < y0 - 80 || wl.y0 > y1 + 80) continue;
+      const ww = wl.x1 - wl.x0;
+      const wh = wl.y1 - wl.y0;
+      ctx.fillStyle = '#6b4a2f';
+      ctx.fillRect(wl.x0, wl.y0, ww, wh);
+      ctx.strokeStyle = '#4a3220';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(wl.x0, wl.y0, ww, wh);
+      // 土块斑点
+      ctx.fillStyle = 'rgba(0,0,0,0.13)';
+      for (let i = 0; i < 4; i++) {
+        const hx = wl.x0 + hash2(i + 1, wl.x0 | 0) * ww;
+        const hy = wl.y0 + hash2(wl.y0 | 0, i + 1) * wh;
+        ctx.beginPath();
+        ctx.arc(hx, hy, Math.min(7, Math.max(3, ww * 0.12)), 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // 安全区虚线方框
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([16, 12]);
+    ctx.strokeRect(-SAFE_RADIUS, -SAFE_RADIUS, SAFE_RADIUS * 2, SAFE_RADIUS * 2);
     ctx.restore();
 
-    // 背景装饰:深色三角形(florr 花园风格,按格子确定性生成)
+    // 背景装饰:深色三角形(花园风格,按格子确定性生成)
     const cell = 170;
     const cx0 = Math.floor(x0 / cell);
     const cx1 = Math.floor(x1 / cell);
@@ -137,7 +183,7 @@ export class Renderer {
         for (let i = 0; i < n; i++) {
           const px = gx * cell + hash2(gx * 3 + i, gy) * cell;
           const py = gy * cell + hash2(gx, gy * 3 + i) * cell;
-          if (Math.hypot(px, py) > WORLD.radius - 10) continue;
+          if (Math.abs(px) > H - 20 || Math.abs(py) > H - 20) continue;
           const s = 16 + hash2(px | 0, py | 0) * 22;
           const rot = hash2(gx + i, gy - i) * TAU;
           ctx.save();

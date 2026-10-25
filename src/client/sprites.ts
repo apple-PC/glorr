@@ -31,10 +31,12 @@ const MOB_EN: Record<string, string> = {
   ladybug: 'Ladybug',
   rock: 'Rock',
   bee: 'Bee',
+  soldier_ant: 'Soldier Ant',
   hornet: 'Hornet',
   spider: 'Spider',
   bumblebee: 'Bumblebee',
   centipede: 'Centipede',
+  dandelion: 'Dandelion',
 };
 const RARITY_EN = ['Common', 'Unusual', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Ultra', 'Super', 'Eternal', 'Unique'];
 
@@ -399,7 +401,8 @@ export function drawMob(
 
   switch (def.id) {
     case 'baby_ant':
-    case 'worker_ant': {
+    case 'worker_ant':
+    case 'soldier_ant': {
       const segs = 3;
       for (let i = 0; i < segs; i++) {
         const sr = r * (i === segs - 1 ? 0.42 : 0.55 - i * 0.05);
@@ -594,6 +597,31 @@ export function drawMob(
         ctx.fill();
         ctx.stroke();
       }
+      break;
+    }
+    case 'dandelion': {
+      // 蒲公英:白色绒球
+      ctx.strokeStyle = '#9aa07a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, r);
+      ctx.lineTo(0, r * 0.2);
+      ctx.stroke();
+      ctx.fillStyle = '#f4f2e2';
+      ctx.strokeStyle = '#b9b48f';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU;
+        const cx = Math.cos(a) * r * 0.62;
+        const cy = Math.sin(a) * r * 0.62 - r * 0.1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.22, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#e8e08a';
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.3, 0, TAU);
+      ctx.fill();
       break;
     }
     default: {

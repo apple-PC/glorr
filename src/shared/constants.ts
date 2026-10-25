@@ -90,8 +90,9 @@ export function xpForLevel(lv: number): number {
 
 // ---------- 世界/地图 ----------
 export const WORLD = {
-  radius: 4600,
-  safeRadius: 520,     // 中心安全区(出生点)
+  radius: 3200,
+  half: 3200,
+  safeRadius: 520,
 };
 export const VIEW_HEIGHT = 1500; // 客户端视口对应的世界高度(缩放基准)
 
@@ -104,14 +105,14 @@ export const DROP_SUPER_TOP_N = 25;
 // ---------- 怪物稀有度属性倍率(近似指数 2.6^i) ----------
 // 服务端旧用(保留兼容)
 export const MOB_STAT_MULT = [1, 2.6, 6.8, 17.6, 45.9, 119, 310, 806, 2096];
-export const MOB_XP_MULT = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+export const MOB_XP_MULT = [1, 1, 3, 22, 206, 3100, 131000, 6800000, 26244000];
 // 依据 florr wiki:生物血量/伤害/护甲按稀有度分别缩放
 // 血量:1 → 3.75 → 13.5 → 54 → 324 → 3159 → 145800 → 4374000 → 26244000
 export const MOB_HP_MULT = [1, 3.75, 13.5, 54, 324, 3159, 145800, 4374000, 26244000];
 // 伤害:每级 ×3
 export const MOB_DMG_MULT = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
-// 护甲:每级 ×3(普通大多 0.8 起)
-export const MOB_ARMOR_MULT = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
+// 护甲:1 → 2 → 7 → 22 → 65 → 194 → 583(超级以上封顶)
+export const MOB_ARMOR_MULT = [1, 2, 7, 22, 65, 194, 583, 583, 583];
 export const MOB_MAX_DROP_RARITY = 6; // 怪物掉落花瓣最高究极
 
 // ---------- 花园环形分区 ----------
@@ -141,9 +142,9 @@ export function ringAt(r: number): RingDef | undefined {
   for (const ring of RINGS) if (r >= ring.r0 && r < ring.r1) return ring;
   return undefined;
 }
-export function isPvp(x: number, y: number): boolean {
-  const ring = ringAt(Math.hypot(x, y));
-  return ring ? ring.pvp : false;
+export function isPvp(_x: number, _y: number): boolean {
+  // 花园为纯 PvE 区域(现代 florr 的 PvP 在裂隙)
+  return false;
 }
 
 // ---------- 观战/服务端基础 ----------

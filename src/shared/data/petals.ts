@@ -8,27 +8,27 @@ export const PETALS: PetalDef[] = [
     desc: '均衡的入门花瓣,伤害与耐久都够用(2.5s 冷却)',
   },
   {
-    id: 'fast', name: '轻', kind: 'melee', dmg: 4, hp: 12, reload: 0, minRarity: 0,
+    id: 'fast', name: '轻', kind: 'melee', dmg: 13, hp: 5, reload: 0.8, minRarity: 0,
     desc: '伤害极低,但几乎没有重量,旋转灵活',
   },
   {
-    id: 'heavy', name: '重', kind: 'melee', dmg: 26, hp: 60, reload: 0, minRarity: 0, rotMul: 0.55,
+    id: 'heavy', name: '重', kind: 'melee', dmg: 13, hp: 150, reload: 10, minRarity: 0, rotMul: 0.55,
     desc: '高耐久高伤害,但会拖慢花瓣转速',
   },
   {
-    id: 'leaf', name: '叶子', kind: 'heal', dmg: 6, hp: 18, reload: 0, minRarity: 1, healPerSec: 3.5,
+    id: 'leaf', name: '叶子', kind: 'heal', dmg: 16, hp: 12, reload: 1.8, minRarity: 1, healPerSec: 1,
     desc: '展开时持续回复生命,赶路刷怪全程生效',
   },
   {
-    id: 'rose', name: '玫瑰', kind: 'heal', dmg: 8, hp: 22, reload: 0, minRarity: 1, onHitHeal: 14,
+    id: 'rose', name: '玫瑰', kind: 'heal', dmg: 5, hp: 5, reload: 3.5, minRarity: 1, onHitHeal: 7.5,
     desc: '命中敌人瞬间回复生命,应急保命',
   },
   {
-    id: 'stinger', name: '蜂针', kind: 'melee', dmg: 18, hp: 10, reload: 0, minRarity: 1,
+    id: 'stinger', name: '蜂针', kind: 'melee', dmg: 100, hp: 1, reload: 10, minRarity: 1,
     desc: '高攻速近战输出,耐久偏低,用量堆伤害',
   },
   {
-    id: 'rock', name: '石头', kind: 'melee', dmg: 30, hp: 90, reload: 0, minRarity: 2,
+    id: 'rock', name: '石头', kind: 'melee', dmg: 22, hp: 30, reload: 3, minRarity: 2,
     desc: '耐久极高的撞击型花瓣,适合前排推怪',
   },
   {
@@ -55,7 +55,7 @@ export const PETALS: PetalDef[] = [
     desc: '一次向四个方向散射豌豆,覆盖面广但单发伤害低',
   },
   {
-    id: 'magnet', name: '磁铁', kind: 'buff', dmg: 4, hp: 20, reload: 0, minRarity: 2, pickupBonus: 34,
+    id: 'magnet', name: '磁铁', kind: 'buff', dmg: 1, hp: 30, reload: 1.5, minRarity: 2, pickupBonus: 80,
     desc: '大幅扩大掉落物拾取范围',
   },
   {
@@ -63,12 +63,12 @@ export const PETALS: PetalDef[] = [
     desc: '加大花瓣环绕半径,从而扩大攻击范围',
   },
   {
-    id: 'glass', name: '玻璃', kind: 'melee', dmg: 18, hp: 8, reload: 2.5, minRarity: 1,
+    id: 'glass', name: '玻璃', kind: 'melee', dmg: 20, hp: 5, reload: 2.5, minRarity: 1,
     desc: '高伤害的脆玻璃碎片,极易破碎',
   },
   {
-    id: 'clover', name: '三叶草', kind: 'heal', dmg: 4, hp: 20, reload: 2.5, minRarity: 2, healPerSec: 2.5,
-    desc: '持续回血,据说能带来好运',
+    id: 'clover', name: '三叶草', kind: 'buff', dmg: 10, hp: 10, reload: 2.5, minRarity: 2, rotBonus: 0.05,
+    desc: '带来好运的三叶草,略微加快花瓣旋转',
   },
 ];
 

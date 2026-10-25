@@ -1,52 +1,63 @@
 import type { MobDef } from '@shared/types';
 
-// glorr 花园生物图鉴(数值参考 florr.io 花园/Ant Hell 常见物种)
+// glorr 花园生物图鉴 —— 数值取自 florr.io 中文维基「模块:生物统计」普通稀有度
 export const MOBS: MobDef[] = [
   {
-    id: 'baby_ant', name: '幼蚁', hp: 12, dmg: 6, speed: 110, radius: 11, xp: 3, armor: 0,
-    behavior: 'passive', aggro: 0, color: '#d8b978',
-    drops: [['basic', 7], ['fast', 3]],
-  },
-  {
-    id: 'worker_ant', name: '工蚁', hp: 30, dmg: 10, speed: 150, radius: 15, xp: 6, armor: 0,
-    behavior: 'neutral', aggro: 420, color: '#b08d4f',
-    drops: [['basic', 4], ['fast', 3], ['leaf', 3]],
-  },
-  {
-    id: 'ladybug', name: '瓢虫', hp: 42, dmg: 9, speed: 105, radius: 20, xp: 8, armor: 1,
-    behavior: 'neutral', aggro: 460, color: '#e5484d',
-    drops: [['rose', 5], ['leaf', 4], ['stinger', 2], ['wing', 1]],
-  },
-  {
-    id: 'rock', name: '石头', hp: 130, dmg: 14, speed: 0, radius: 27, xp: 10, armor: 6,
+    id: 'rock', name: '岩石', hp: 75, dmg: 10, speed: 0, radius: 27, xp: 1, armor: 1,
     behavior: 'static', aggro: 0, color: '#9aa0a6',
-    drops: [['heavy', 5], ['rock', 4], ['basic', 2]],
+    drops: [['rock', 50], ['heavy', 20]],
   },
   {
-    id: 'bee', name: '蜜蜂', hp: 26, dmg: 12, speed: 215, radius: 14, xp: 10, armor: 0,
-    behavior: 'aggressive', aggro: 400, color: '#f5c518',
-    drops: [['stinger', 4], ['honey', 4], ['leaf', 2], ['magnet', 1]],
+    id: 'ladybug', name: '瓢虫', hp: 60, dmg: 10, speed: 105, radius: 20, xp: 1, armor: 1,
+    behavior: 'passive', neutralFrom: 2, aggro: 460, color: '#e5484d',
+    drops: [['rose', 60], ['fast', 40]],
   },
   {
-    id: 'hornet', name: '黄蜂', hp: 34, dmg: 10, speed: 135, radius: 15, xp: 14, armor: 1,
+    id: 'bee', name: '蜜蜂', hp: 35, dmg: 50, speed: 180, radius: 14, xp: 1, armor: 1,
+    behavior: 'passive', neutralFrom: 2, aggro: 400, color: '#f5c518',
+    drops: [['stinger', 60], ['honey', 30]],
+  },
+  {
+    id: 'baby_ant', name: '幼蚁', hp: 25, dmg: 10, speed: 110, radius: 11, xp: 1, armor: 1,
+    behavior: 'passive', aggro: 0, color: '#d8b978',
+    drops: [['fast', 60], ['leaf', 30]],
+  },
+  {
+    id: 'worker_ant', name: '工蚁', hp: 60, dmg: 10, speed: 150, radius: 15, xp: 1, armor: 1,
+    behavior: 'neutral', aggro: 420, color: '#b08d4f',
+    drops: [['leaf', 60], ['basic', 40]],
+  },
+  {
+    id: 'soldier_ant', name: '兵蚁', hp: 100, dmg: 10, speed: 165, radius: 17, xp: 1, armor: 1,
+    behavior: 'aggressive', aggro: 480, color: '#8a6b3a',
+    drops: [['glass', 60], ['clover', 40]],
+  },
+  {
+    id: 'hornet', name: '黄蜂', hp: 60, dmg: 50, speed: 140, radius: 15, xp: 1, armor: 1,
     behavior: 'aggressive', aggro: 520, color: '#e8a13a',
-    ranged: { dmg: 14, speed: 320, cd: 2.2, range: 480 },
-    drops: [['missile', 6], ['stinger', 3], ['leaf', 2]],
+    ranged: { dmg: 10, speed: 320, cd: 2.2, range: 480 },
+    drops: [['missile', 100]],
   },
   {
-    id: 'spider', name: '蜘蛛', hp: 30, dmg: 14, speed: 265, radius: 16, xp: 18, armor: 0,
-    behavior: 'aggressive', aggro: 460, color: '#5b5f6b',
-    drops: [['web', 5], ['faster', 3], ['stinger', 2], ['peas', 2]],
+    id: 'spider', name: '蜘蛛', hp: 60, dmg: 15, speed: 265, radius: 16, xp: 1, armor: 1,
+    behavior: 'aggressive', aggro: 460, color: '#5b5f6b', poison: 40,
+    drops: [['web', 60], ['faster', 40]],
   },
   {
-    id: 'bumblebee', name: '熊蜂', hp: 95, dmg: 18, speed: 155, radius: 23, xp: 30, armor: 4,
-    behavior: 'aggressive', aggro: 440, color: '#d9a441',
-    drops: [['honey', 5], ['stinger', 3], ['leaf', 2]],
+    id: 'bumblebee', name: '熊蜂', hp: 25, dmg: 20, speed: 155, radius: 23, xp: 1, armor: 1,
+    behavior: 'passive', aggro: 0, color: '#d9a441',
+    drops: [['honey', 100]],
   },
   {
-    id: 'centipede', name: '蜈蚣', hp: 80, dmg: 12, speed: 150, radius: 20, xp: 20, armor: 1,
-    behavior: 'neutral', aggro: 420, color: '#8fbf5a',
-    drops: [['glass', 4], ['leaf', 3], ['basic', 2]],
+    id: 'centipede', name: '蜈蚣', hp: 25, dmg: 10, speed: 90, radius: 20, xp: 1, armor: 1,
+    behavior: 'passive', neutralFrom: 3, aggro: 420, color: '#8fbf5a',
+    drops: [['peas', 60], ['leaf', 40]],
+  },
+  {
+    id: 'dandelion', name: '蒲公英', hp: 40, dmg: 10, speed: 0, radius: 18, xp: 1, armor: 1,
+    behavior: 'static', aggro: 0, color: '#e8e08a',
+    ranged: { dmg: 10, speed: 280, cd: 2.6, range: 420 },
+    drops: [['leaf', 100]],
   },
 ];
 
