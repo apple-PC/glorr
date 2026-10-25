@@ -248,6 +248,20 @@ async function main(): Promise<void> {
     const pausedOff = await waitFor(cdp, `document.getElementById('pausescreen').classList.contains('hidden')`, 3000);
     allOk = check('ESC 可继续游戏', pausedOff === true) && allOk;
 
+    // 死亡不掉落:杀死玩家 → 重生后携带物数量不变
+    const countExpr = `window.__glorr.self ? (window.__glorr.self.inv.length + window.__glorr.self.slotList.filter(Boolean).length) : -1`;
+    const cntBefore = await cdp.eval(countExpr);
+    const killed = await cdp.eval(`(() => { if (typeof window.__glorr.killPlayer === 'function') { window.__glorr.killPlayer(); return true; } return false; })()`);
+    if (killed === true) {
+      const deadNow = await waitFor(cdp, `window.__glorr.self && window.__glorr.self.dead === true`, 2500);
+      allOk = check('死亡触发', deadNow === true) && allOk;
+      await new Promise((r) => setTimeout(r, 3400));
+      const cntAfter = await cdp.eval(countExpr);
+      allOk = check('死亡不掉落(重生后携带物不变)', cntAfter === cntBefore, `${cntBefore} → ${cntAfter}`) && allOk;
+    } else {
+      console.log('  SKIP  死亡不掉落(未暴露 killPlayer,跳过)');
+    }
+
     // 账号页可加载(注册/登录表单存在)
     try {
       await cdp.eval(`location.assign('/account/')`);

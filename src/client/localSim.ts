@@ -127,6 +127,7 @@ export class LocalSim implements GameConn {
   onChat: ((from: string, text: string) => void) | null = null;
   onAuthOk: ((info: { token: string; name: string; level: number; kills: number; admin: boolean }) => void) | null = null;
   onAuthErr: ((reason: string) => void) | null = null;
+  onFloat: ((x: number, y: number, text: string, color: string) => void) | null = null;
 
   private name = '你';
   private x = 0;
@@ -146,6 +147,10 @@ export class LocalSim implements GameConn {
   private invulnUntil = 0;
   private respawnAt = 0;
   private slowUntil = 0;
+  private speedUntil = 0;
+  private magnetUntil = 0;
+  private healUntil = 0;
+  private talentReady: Record<string, number> = {};
   private inputX = 0;
   private inputY = 0;
   private time = 0;
@@ -217,6 +222,16 @@ export class LocalSim implements GameConn {
     /* 单机无连接 */
   }
 
+  /** 天赋技能(左下角按钮):加速 / 磁铁 / 治疗,20s 冷却 */
+  talent(kind: 'speed' | 'magnet' | 'heal'): void {
+    if (this.dead) return;
+    if (this.time < (this.talentReady[kind] ?? 0)) return;
+    this.talentReady[kind] = this.time + 20;
+    if (kind === 'speed') this.speedUntil = this.time + 5;
+    else if (kind === 'magnet') this.magnetUntil = this.time + 6;
+    else this.healUntil = this.time + 4;
+  }
+
   renderPos(e: EntState): [number, number] {
     return [e.x, e.y];
   }
@@ -251,7 +266,8 @@ export class LocalSim implements GameConn {
   // ---------- 玩家 ----------
 
   private updatePlayer(dt: number): void {
-    const spd = C.PLAYER.speed * (this.time < this.slowUntil ? 0.62 : 1);
+    const boost = this.time < this.speedUntil ? 1.6 : 1;
+    const spd = C.PLAYER.speed * boost * (this.time < this.slowUntil ? 0.62 : 1);
     const len = Math.hypot(this.inputX, this.inputY);
     if (len > 0) {
       const nx = this.inputX / len;
@@ -283,11 +299,13 @@ export class LocalSim implements GameConn {
       if (def.healPerSec) heal += petalHealPerSec(def, s.rarity);
     }
     if (heal > 0) this.hp = Math.min(this.maxHp, this.hp + heal * dt);
+    if (this.time < this.healUntil) this.hp = Math.min(this.maxHp, this.hp + 30 * dt);
   }
 
   private damagePlayer(dmg: number, fromX: number, fromY: number): void {
     if (this.dead || this.time < this.invulnUntil) return;
     this.hp -= dmg;
+    this.onFloat?.(this.x + rand(-6, 6), this.y - 34, `-${Math.round(dmg)}`, '#ff8a8a');
     if (this.hp <= 0) {
       this.killPlayer();
     } else {
@@ -297,13 +315,12 @@ export class LocalSim implements GameConn {
     }
   }
 
-  /** 死亡:先通知(便于 UI 统计损失,此时仍未清空),再掉落全部携带物并清空 */
+  /** 死亡:不掉落任何花瓣,保留等级/经验/装备,仅原地重生 */
   private killPlayer(): void {
     this.dead = true;
     this.hp = 0;
     this.respawnAt = this.time + C.PLAYER.respawnDelay;
     this.onEv?.('death');
-    this.dropAll();
     this.save();
   }
 
@@ -332,10 +349,15 @@ export class LocalSim implements GameConn {
     this.invulnUntil = this.time + C.PLAYER.spawnInvuln;
     this.respawnAt = 0;
     this.slowUntil = 0;
-    // 重生回到新手套装(等级/经验/击杀保留)
-    this.inv = C.START_KIT.map((id) => ({ uid: this.nextUid++, id, rarity: 0 }));
-    this.slotList = new Array(C.MAX_SLOTS).fill(null);
-    this.autoEquip();
+    // 死亡不掉落:保留装备与背包,重置耐久与冷却
+    for (const s of this.slotList) {
+      if (!s) continue;
+      s.hp = s.maxHp;
+      s.broken = false;
+      s.regenT = 0;
+      s.hitCd = 0;
+      s.reloadT = 0;
+    }
     this.onEv?.('respawn');
     this.emitYou();
     this.save();
@@ -455,6 +477,7 @@ export class LocalSim implements GameConn {
     const armor = (def.armor ?? 0) * (C.MOB_ARMOR_MULT[m.rarity] ?? 1);
     const real = Math.max(1, dmg - armor);
     m.hp -= real;
+    this.onFloat?.(m.x + rand(-6, 6), m.y - 22, String(Math.round(real)), '#ffffff');
     if (def.behavior === 'neutral') {
       m.retaliateUntil = this.time + 6;
       m.target = this.selfId;
@@ -553,7 +576,11 @@ export class LocalSim implements GameConn {
             const kb = Math.atan2(m.y - py, m.x - px);
             m.x += Math.cos(kb) * 6;
             m.y += Math.sin(kb) * 6;
-            if (def.onHitHeal) this.hp = Math.min(this.maxHp, this.hp + petalOnHitHeal(def, s.rarity));
+            if (def.onHitHeal) {
+              const h = petalOnHitHeal(def, s.rarity);
+              this.hp = Math.min(this.maxHp, this.hp + h);
+              this.onFloat?.(this.x, this.y - 30, `+${Math.round(h)}`, '#8dff8d');
+            }
             s.hp -= md.dmg * C.PLAYER.petalWear;
             if (s.hp <= 0) {
               s.broken = true;
@@ -674,7 +701,7 @@ export class LocalSim implements GameConn {
   }
 
   private updateDrops(): void {
-    const pr = pickupRadius(this.slotList);
+    const pr = pickupRadius(this.slotList) + (this.time < this.magnetUntil ? 120 : 0);
     for (const d of this.drops.values()) {
       const limit = C.DROP_DESPAWN[d.rarity] ?? 30;
       if (Number.isFinite(limit) && this.time - d.bornAt > limit) {

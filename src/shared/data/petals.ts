@@ -62,6 +62,14 @@ export const PETALS: PetalDef[] = [
     id: 'wing', name: '翅膀', kind: 'buff', dmg: 4, hp: 18, reload: 0, minRarity: 2, orbitBonus: 9,
     desc: '加大花瓣环绕半径,从而扩大攻击范围',
   },
+  {
+    id: 'glass', name: '玻璃', kind: 'melee', dmg: 18, hp: 8, reload: 2.5, minRarity: 1,
+    desc: '高伤害的脆玻璃碎片,极易破碎',
+  },
+  {
+    id: 'clover', name: '三叶草', kind: 'heal', dmg: 4, hp: 20, reload: 2.5, minRarity: 2, healPerSec: 2.5,
+    desc: '持续回血,据说能带来好运',
+  },
 ];
 
 const PETAL_MAP = new Map(PETALS.map((p) => [p.id, p]));

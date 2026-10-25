@@ -43,6 +43,11 @@ export const MOBS: MobDef[] = [
     behavior: 'aggressive', aggro: 440, color: '#d9a441',
     drops: [['honey', 5], ['stinger', 3], ['leaf', 2]],
   },
+  {
+    id: 'centipede', name: '蜈蚣', hp: 80, dmg: 12, speed: 150, radius: 20, xp: 20, armor: 1,
+    behavior: 'neutral', aggro: 420, color: '#8fbf5a',
+    drops: [['glass', 4], ['leaf', 3], ['basic', 2]],
+  },
 ];
 
 const MOB_MAP = new Map(MOBS.map((m) => [m.id, m]));

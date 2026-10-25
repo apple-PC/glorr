@@ -33,6 +33,7 @@ export class Ui {
   private slotSig = '';
   private drag: { uid: number; slot: number; moved: boolean } | null = null;
   private playerSig = '';
+  private hudAvatarDrawn = false;
 
   // DOM
   private hud = document.getElementById('hud')!;
@@ -508,8 +509,10 @@ export class Ui {
         const s = self.slotList[i];
         if (s) {
           drawPetalIcon(c, s.id, 21, 21, 15, s.rarity);
-          el.style.borderColor = RARITY_COLORS[s.rarity];
+          el.style.background = RARITY_COLORS[s.rarity];
+          el.style.borderColor = 'rgba(0,0,0,0.35)';
         } else {
+          el.style.background = 'rgba(255,255,255,0.08)';
           el.style.borderColor = 'rgba(255,255,255,0.14)';
         }
       }
@@ -535,6 +538,25 @@ export class Ui {
     if (first) {
       this.hud.classList.remove('hidden');
       this.addSysChat('欢迎来到 glorr 花园,击杀生物收集花瓣吧');
+    }
+
+    // 左上角玩家条(头像 + 名字 + 等级 + 经验)
+    const hudName = document.getElementById('hudname');
+    if (hudName) hudName.textContent = self.name;
+    const hudLvl = document.getElementById('hudlvl');
+    if (hudLvl) hudLvl.textContent = `Lvl ${self.level}`;
+    const hudXp = document.getElementById('hudxp');
+    if (hudXp) hudXp.style.width = `${self.xpNeed > 0 ? Math.min(100, (self.xp / self.xpNeed) * 100) : 0}%`;
+    if (!this.hudAvatarDrawn) {
+      this.hudAvatarDrawn = true;
+      const cv = document.getElementById('hudavatar') as HTMLCanvasElement | null;
+      if (cv) {
+        const c = cv.getContext('2d');
+        if (c) {
+          c.clearRect(0, 0, cv.width, cv.height);
+          drawFlower(c, 23, 23, 15, -Math.PI / 2, {});
+        }
+      }
     }
   }
 

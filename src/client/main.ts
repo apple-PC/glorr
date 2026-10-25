@@ -27,6 +27,7 @@ const particles = new Particles();
 const camera = new Camera(window.innerWidth, window.innerHeight);
 const input = new Input(canvas);
 const renderer = new Renderer(canvas);
+net.onFloat = (x, y, text, color) => renderer.addFloat(x, y, text, color);
 const menuBg = new MenuBg(document.getElementById('menubg') as HTMLCanvasElement);
 const accountBg = new MenuBg(document.getElementById('accountbg') as HTMLCanvasElement);
 
@@ -246,17 +247,8 @@ net.onEv = (k, v) => {
     case 'death': {
       sfx.play('death');
       particles.burst(self.x, self.y, '#ff8fb3', 26, 230, 5);
-      // 统计损失(ev 先于死亡后的 you 到达,此时 self 还是死亡前状态)
-      const tally = new Map<number, number>();
-      for (const it of net.self?.inv ?? []) tally.set(it.rarity, (tally.get(it.rarity) ?? 0) + 1);
-      for (const s of net.self?.slotList ?? []) {
-        if (s) tally.set(s.rarity, (tally.get(s.rarity) ?? 0) + 1);
-      }
-      const lost = [...tally.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([r, n]) => `${rarityName(r)}×${n}`)
-        .join(' ');
-      ui.showDeath(net.self?.level ?? 1, net.self?.kills ?? 0, lost);
+      // 死亡不掉落任何花瓣
+      ui.showDeath(net.self?.level ?? 1, net.self?.kills ?? 0, '');
       break;
     }
     case 'respawn':
@@ -438,6 +430,22 @@ document.getElementById('settingsclose')?.addEventListener('click', () => {
   if (paused) pauseScreen.classList.remove('hidden');
 });
 
+// ---------- 天赋(左下角按钮) ----------
+
+function useTalent(kind: 'speed' | 'magnet' | 'heal'): void {
+  net.talent?.(kind);
+  const names: Record<string, string> = { speed: '加速', magnet: '磁铁', heal: '治疗' };
+  ui.toast(`天赋 · ${names[kind]}`);
+  const btn = document.querySelector<HTMLButtonElement>(`[data-talent="${kind}"]`);
+  if (btn) {
+    btn.classList.add('cooling');
+    window.setTimeout(() => btn.classList.remove('cooling'), 20000);
+  }
+}
+for (const b of document.querySelectorAll<HTMLButtonElement>('[data-talent]')) {
+  b.addEventListener('click', () => useTalent(b.dataset.talent as 'speed' | 'magnet' | 'heal'));
+}
+
 gardenBtn.addEventListener('click', () => {
   if (!readyBtn.disabled) {
     ui.toast('先点击「准备就绪」');
@@ -523,6 +531,18 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (ui.isChatFocused()) return;
+  if (e.key === 'z' || e.key === 'Z') {
+    useTalent('speed');
+    return;
+  }
+  if (e.key === 'x' || e.key === 'X') {
+    useTalent('magnet');
+    return;
+  }
+  if (e.key === 'c' || e.key === 'C') {
+    useTalent('heal');
+    return;
+  }
   if (e.key === 'Enter') {
     e.preventDefault();
     ui.focusChat();

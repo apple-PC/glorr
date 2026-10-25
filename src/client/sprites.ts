@@ -21,7 +21,22 @@ const PETAL_FILL: Record<string, string> = {
   peas: '#7ed957',
   magnet: '#d9534f',
   wing: '#cfe8ff',
+  glass: '#e9f4ff',
+  clover: '#4fbf5f',
 };
+
+const MOB_EN: Record<string, string> = {
+  baby_ant: 'Baby Ant',
+  worker_ant: 'Worker Ant',
+  ladybug: 'Ladybug',
+  rock: 'Rock',
+  bee: 'Bee',
+  hornet: 'Hornet',
+  spider: 'Spider',
+  bumblebee: 'Bumblebee',
+  centipede: 'Centipede',
+};
+const RARITY_EN = ['Common', 'Unusual', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Ultra', 'Super', 'Eternal', 'Unique'];
 
 /** 花瓣形状路径(以原点为中心,朝上,-y 为尖) */
 function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
@@ -125,6 +140,20 @@ function petalPath(ctx: CanvasRenderingContext2D, id: string, s: number): void {
       ctx.quadraticCurveTo(-s * 0.95, -s * 0.3, 0, -s);
       break;
     }
+    case 'glass':
+      // 玻璃:菱形碎片
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.55, 0);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.55, 0);
+      ctx.closePath();
+      break;
+    case 'clover':
+      // 三叶草:三个圆叶
+      ctx.arc(-s * 0.3, -s * 0.2, s * 0.42, 0, TAU);
+      ctx.arc(s * 0.3, -s * 0.2, s * 0.42, 0, TAU);
+      ctx.arc(0, s * 0.3, s * 0.42, 0, TAU);
+      break;
     case 'basic':
       // 旧版 florr 的 Basic 是白色圆形花瓣
       ctx.arc(0, 0, s * 0.62, 0, TAU);
@@ -550,6 +579,23 @@ export function drawMob(
       ctx.fill();
       break;
     }
+    case 'centipede': {
+      // 蜈蚣:一串绿色圆节
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const t2 = i / (n - 1);
+        const cx = Math.sin(t2 * Math.PI * 1.2 + t * 3 + i) * r * 0.45;
+        const cy = -r * 0.8 + i * (r * 0.42);
+        ctx.fillStyle = i % 2 === 0 ? body : shade(body, -14);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.44, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+      }
+      break;
+    }
     default: {
       ctx.fillStyle = body;
       ctx.strokeStyle = INK;
@@ -572,7 +618,23 @@ export function drawMob(
   }
   ctx.restore();
 
-  if (hpPct < 0.999) drawBar(ctx, x, y - radius - 10, radius * 2.1, hpPct);
+  // 名字 + 稀有度 + 血条(florr 风格,常显)
+  const nm = MOB_EN[def.id] ?? def.name;
+  const rc = rarity === 0 ? '#e8e8e8' : RARITY_COLORS[rarity] ?? '#e8e8e8';
+  ctx.save();
+  ctx.font = '700 12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.strokeText(nm, x, y - radius - 26);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(nm, x, y - radius - 26);
+  ctx.font = '700 9.5px system-ui, sans-serif';
+  ctx.strokeText(RARITY_EN[rarity] ?? '', x, y - radius - 14);
+  ctx.fillStyle = rc;
+  ctx.fillText(RARITY_EN[rarity] ?? '', x, y - radius - 14);
+  ctx.restore();
+  drawBar(ctx, x, y - radius - 4, radius * 2.2, hpPct);
 }
 
 /** 颜色明暗调整 */

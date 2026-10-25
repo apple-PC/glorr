@@ -28,6 +28,14 @@
       </button>
     </div>
 
+    <div id="hudplayer">
+      <canvas id="hudavatar" width="46" height="46"></canvas>
+      <div class="hudbox">
+        <div id="hudname">—</div>
+        <div class="xpwrap"><div id="hudxp"></div><span id="hudlvl">Lvl 1</span></div>
+      </div>
+    </div>
+
     <div id="playerlist"></div>
 
     <div id="questbox"><b>深入险境</b><span>送一朵花去 C9 最深处</span></div>
@@ -39,6 +47,21 @@
     <div id="petalbar">
       <div id="equiprow"></div>
       <div id="invrow"></div>
+    </div>
+
+    <div id="talentbar">
+      <button class="tbtn speed" data-talent="speed" title="加速 (Z)">
+        <span class="tkey">Z</span>
+        <svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+      </button>
+      <button class="tbtn magnet" data-talent="magnet" title="磁铁 (X)">
+        <span class="tkey">X</span>
+        <svg viewBox="0 0 24 24"><path d="M5 3v8a7 7 0 0 0 14 0V3h-4v8a3 3 0 0 1-6 0V3H5z"/></svg>
+      </button>
+      <button class="tbtn heal" data-talent="heal" title="治疗 (C)">
+        <span class="tkey">C</span>
+        <svg viewBox="0 0 24 24"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/></svg>
+      </button>
     </div>
 
     <div id="chatwrap">
@@ -87,7 +110,7 @@
       <h2>你死了</h2>
       <div class="dstat">到达等级 <b id="deathlevel">1</b> · 击杀 <b id="deathkills">0</b></div>
       <div class="dlost" id="deathlost"></div>
-      <div class="dhint">掉落物已散落在原地,趁别人捡走前跑尸也许能挽回一部分</div>
+      <div class="dhint">死亡不会掉落花瓣,休息一下继续冒险</div>
       <button id="respawnbtn" class="greenbtn big">重生</button>
     </div>
   </div>

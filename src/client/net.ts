@@ -70,6 +70,8 @@ export interface GameConn {
   onChat: ((from: string, text: string) => void) | null;
   onAuthOk: ((info: { token: string; name: string; level: number; kills: number; admin: boolean }) => void) | null;
   onAuthErr: ((reason: string) => void) | null;
+  onFloat?: ((x: number, y: number, text: string, color: string) => void) | null;
+  talent?: (kind: 'speed' | 'magnet' | 'heal') => void;
   connect(url: string, token?: string): Promise<void>;
   register(name: string, password: string): void;
   login(name: string, password: string): void;
