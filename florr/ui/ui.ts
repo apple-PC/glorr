@@ -1,0 +1,1030 @@
+// glorr UI 层:florr 式 HUD(花瓣双栏/玩家列表/聊天/小地图)+ 弹窗 + 拖拽
+import { CRAFT_INPUT, CRAFT_SUCCESS, ETERNAL, MAX_SLOTS, PLAYER, RARITY_COLORS, WORLD, rarityName } from '@/data/rules';
+import { getPetal } from '@/data/petals';
+import { MOBS } from '@/data/mobs';
+import { DEFAULT_SERVER_ID, SERVERS } from '@/sim/servers';
+import type { GameConn, SelfState } from '@/sim/conn';
+import { drawFlower, drawMob, drawPetalIcon, drawTalentBadge, PETAL_EN } from '@/view/sprites';
+import { drawMinimap } from '@/view/minimap';
+import { rotationSpeed } from '@/data/petals';
+import { TAU } from '@/sim/math';
+
+const RARITY_EN = ['Common', 'Unusual', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Ultra', 'Super', 'Eternal', 'Unique'];
+
+export interface UiCallbacks {
+  onEquip(uid: number, slot: number): void;
+  onUnequip(slot: number): void;
+  onDrop(uid: number): void;
+  onCraft(id: string, rarity: number): void;
+  onRespawn(): void;
+  onToggleSound(): void;
+  onSendChat(text: string): void;
+  onLogin(name: string, password: string): void;
+  onRegister(name: string, password: string): void;
+  onSelectServer(id: string): void;
+  onTalents(levels: Record<string, number>): void;
+}
+
+/** 天赋定义(消耗 TP 永久强化) */
+export interface TalentDef {
+  id: 'speed' | 'magnet' | 'heal' | 'hp' | 'dmg';
+  name: string;
+  max: number;
+  baseCost: number;
+  desc: string;
+}
+
+export const TALENTS: TalentDef[] = [
+  { id: 'speed', name: '疾跑', max: 5, baseCost: 1, desc: '技能「疾跑」持续更久、冷却更短' },
+  { id: 'magnet', name: '磁力', max: 5, baseCost: 1, desc: '技能「磁铁」持续更久、冷却更短' },
+  { id: 'heal', name: '愈合', max: 5, baseCost: 1, desc: '技能「治疗」持续更久、冷却更短' },
+  { id: 'hp', name: '生命', max: 8, baseCost: 1, desc: '每级 +8% 最大生命' },
+  { id: 'dmg', name: '锋利', max: 8, baseCost: 1, desc: '每级 +6% 花瓣伤害' },
+];
+
+interface InvEntry {
+  id: string;
+  rarity: number;
+  uids: number[];
+}
+
+export class Ui {
+  private self: SelfState | null = null;
+  private invEntries: InvEntry[] = [];
+  private invSig = '';
+  private slotSig = '';
+  private drag: { uid: number; slot: number; moved: boolean } | null = null;
+  private playerSig = '';
+  private hudAvatarDrawn = false;
+
+  // DOM
+  private hud = document.getElementById('hud')!;
+  private equipRow = document.getElementById('equiprow')!;
+  private invRow = document.getElementById('invrow')!;
+  private slotEls: HTMLDivElement[] = [];
+  private slotCanvases: HTMLCanvasElement[] = [];
+  private playerList = document.getElementById('playerlist')!;
+  private chatLog = document.getElementById('chatlog')!;
+  private chatInput = document.getElementById('chatinput') as HTMLInputElement;
+  private toastsEl = document.getElementById('toasts')!;
+  private craftModal = document.getElementById('craftmodal')!;
+  private craftSelect = document.getElementById('craftselect') as HTMLSelectElement;
+  private craftInfo = document.getElementById('craftinfo')!;
+  private craftPreview = document.getElementById('craftpreview') as HTMLCanvasElement;
+  private craftGo = document.getElementById('craftgo') as HTMLButtonElement;
+  private deathScreen = document.getElementById('deathscreen')!;
+  private deathLevel = document.getElementById('deathlevel')!;
+  private deathKills = document.getElementById('deathkills')!;
+  private ghost = document.getElementById('dragghost')!;
+  private soundBtn = document.getElementById('soundbtn')!;
+  private menuSoundBtn = document.getElementById('menusoundbtn')!;
+
+  constructor(
+    private net: GameConn,
+    private cb: UiCallbacks,
+  ) {
+    this.buildEquipSlots();
+    this.bindChrome();
+    this.bindDrag();
+    this.bindCraft();
+    this.bindChat();
+  }
+
+  // ---------- 构建装备槽 ----------
+
+  private buildEquipSlots(): void {
+    this.equipRow.innerHTML = '';
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'eslot locked';
+      slot.dataset.slot = String(i);
+      const cv = document.createElement('canvas');
+      cv.width = 44;
+      cv.height = 44;
+      cv.style.width = '44px';
+      cv.style.height = '44px';
+      const label = document.createElement('span');
+      label.className = 'ename';
+      const overlay = document.createElement('div');
+      overlay.className = 'cdoverlay';
+      const dur = document.createElement('div');
+      dur.className = 'dur';
+      const durFill = document.createElement('div');
+      dur.appendChild(durFill);
+      slot.append(cv, label, overlay, dur);
+      this.equipRow.appendChild(slot);
+      this.slotEls.push(slot);
+      this.slotCanvases.push(cv);
+    }
+  }
+
+  // ---------- 固定控件 ----------
+
+  private bindChrome(): void {
+    document.getElementById('craftbtn')!.addEventListener('click', () => this.toggleCraft());
+    document.getElementById('bagbtn')!.addEventListener('click', () => this.toggleInventory());
+    document.getElementById('talentbtn')!.addEventListener('click', () => this.toggleTalents());
+    document.getElementById('bestbtn')!.addEventListener('click', () => this.toggleBestiary());
+    document.getElementById('craftclose')!.addEventListener('click', () => this.craftModal.classList.add('hidden'));
+    for (const btn of document.querySelectorAll<HTMLElement>('[data-close]')) {
+      btn.addEventListener('click', () => {
+        document.getElementById(btn.dataset.close!)?.classList.add('hidden');
+      });
+    }
+    this.soundBtn.addEventListener('click', () => this.cb.onToggleSound());
+    this.menuSoundBtn.addEventListener('click', () => this.cb.onToggleSound());
+    document.getElementById('respawnbtn')!.addEventListener('click', () => {
+      this.deathScreen.classList.add('hidden');
+      this.cb.onRespawn();
+    });
+    document.getElementById('menusettingsbtn')!.addEventListener('click', () => this.openSettings());
+    document.getElementById('hudsettingsbtn')!.addEventListener('click', () => this.openSettings());
+    document.getElementById('settingsclose')!.addEventListener('click', () => this.settingsModal.classList.add('hidden'));
+    (document.getElementById('soundtoggle') as HTMLInputElement).addEventListener('change', (e) => {
+      const on = (e.target as HTMLInputElement).checked;
+      this.setSoundLabel(on);
+      this.cb.onToggleSound();
+    });
+  }
+
+  setSoundLabel(on: boolean): void {
+    this.soundBtn.classList.toggle('off', !on);
+    this.menuSoundBtn.classList.toggle('off', !on);
+    const toggle = document.getElementById('soundtoggle') as HTMLInputElement;
+    if (toggle) toggle.checked = on;
+  }
+
+  // ---------- 账号屏 ----------
+
+  private accScreen = document.getElementById('accountscreen')!;
+  private accMsg = document.getElementById('acc-msg')!;
+  private accName = document.getElementById('acc-name') as HTMLInputElement;
+  private accPass = document.getElementById('acc-pass') as HTMLInputElement;
+  private accGo = document.getElementById('acc-go') as HTMLButtonElement;
+  private accMode: 'login' | 'register' = 'login';
+
+  bindAccount(): void {
+    // 管理后台链接:保留当前查询参数(公网托管的 sharecode)
+    const adminLink = document.getElementById('adminlink') as HTMLAnchorElement | null;
+    if (adminLink) adminLink.href = `admin${location.search}`;
+    // 账号页:切换服务器
+    document.getElementById('acc-server-switch')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.openSettings();
+    });
+
+    const tabLogin = document.getElementById('tab-login')!;
+    const tabRegister = document.getElementById('tab-register')!;
+    const setMode = (mode: 'login' | 'register') => {
+      this.accMode = mode;
+      tabLogin.classList.toggle('active', mode === 'login');
+      tabRegister.classList.toggle('active', mode === 'register');
+      this.accGo.textContent = mode === 'login' ? '登录' : '注册并进入';
+      this.accMsg.textContent = '';
+      this.accPass.placeholder = mode === 'login' ? '密码(至少 4 位)' : '设置密码(至少 4 位)';
+    };
+    tabLogin.addEventListener('click', () => setMode('login'));
+    tabRegister.addEventListener('click', () => setMode('register'));
+    this.accGo.addEventListener('click', () => {
+      const name = this.accName.value.trim();
+      const password = this.accPass.value;
+      if (this.accMode === 'login') this.cb.onLogin(name, password);
+      else this.cb.onRegister(name, password);
+    });
+    for (const input of [this.accName, this.accPass]) {
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if ((e as KeyboardEvent).key === 'Enter') this.accGo.click();
+      });
+    }
+  }
+
+  showAccount(): void {
+    this.accScreen.classList.remove('hidden');
+    document.getElementById('menuscreen')!.classList.add('hidden');
+  }
+
+  /** 账号页显示当前选中的服务器 */
+  setAccountServerName(name: string): void {
+    const el = document.getElementById('acc-server-name');
+    if (el) el.textContent = name;
+  }
+
+  /** 账号页服务器提示(如 https 页面无法连本机 ws) */
+  setAccountServerNote(text: string): void {
+    const el = document.getElementById('acc-server-note');
+    if (el) el.textContent = text;
+  }
+
+  hideAccount(): void {
+    this.accScreen.classList.add('hidden');
+  }
+
+  accountMsg(text: string): void {
+    this.accMsg.textContent = text;
+  }
+
+  setAccountChip(name: string, level: number, kills: number): void {
+    document.getElementById('chipname')!.textContent = name;
+    document.getElementById('chiplevel')!.textContent = `Lv ${level} · 击杀 ${kills}`;
+    document.getElementById('accountchip')!.classList.remove('hidden');
+    const cv = document.getElementById('accavatar') as HTMLCanvasElement;
+    const c = cv.getContext('2d')!;
+    c.clearRect(0, 0, cv.width, cv.height);
+    drawFlower(c, 17, 17, 10, -Math.PI / 2, {});
+  }
+
+  // ---------- 设置:服务器选择 ----------
+
+  private settingsModal = document.getElementById('settingsmodal')!;
+  private serverListEl = document.getElementById('serverlist')!;
+  private selectedServer = DEFAULT_SERVER_ID;
+  private serverProbes = new Map<string, { status: 'online' | 'offline' | 'testing'; ms?: number }>();
+
+  openSettings(): void {
+    this.settingsModal.classList.remove('hidden');
+    this.buildServerList();
+    this.probeServers();
+  }
+
+  hideSettings(): void {
+    this.settingsModal.classList.add('hidden');
+  }
+
+  showAdminLink(show: boolean): void {
+    document.getElementById('adminlinkrow')!.classList.toggle('hidden', !show);
+  }
+
+  private buildServerList(): void {
+    this.serverListEl.innerHTML = '';
+    for (const server of SERVERS) {
+      const row = document.createElement('button');
+      row.className = `srow-server${server.id === this.selectedServer ? ' selected' : ''}`;
+      const probe = this.serverProbes.get(server.id);
+      const statusHtml =
+        probe?.status === 'online'
+          ? `<span class="sstatus online">在线 ${probe.ms ?? '?'}ms</span>`
+          : probe?.status === 'offline'
+            ? `<span class="sstatus offline">离线</span>`
+            : `<span class="sstatus">检测中…</span>`;
+      row.innerHTML = `<span class="sname">${server.name}</span><span class="snote">${server.note}</span>${statusHtml}`;
+      row.addEventListener('click', () => {
+        if (server.id === this.selectedServer) return;
+        this.selectedServer = server.id;
+        this.cb.onSelectServer(server.id);
+        this.buildServerList();
+        this.probeServers();
+      });
+      this.serverListEl.appendChild(row);
+    }
+  }
+
+  /** 轻量探测:WS 连接 + ping 计时 */
+  private probeServers(): void {
+    for (const server of SERVERS) {
+      this.serverProbes.set(server.id, { status: 'testing' });
+      const started = performance.now();
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(server.url);
+      } catch {
+        this.serverProbes.set(server.id, { status: 'offline' });
+        continue;
+      }
+      const done = (online: boolean) => {
+        if (!online) this.serverProbes.set(server.id, { status: 'offline' });
+        else this.serverProbes.set(server.id, { status: 'online', ms: Math.round(performance.now() - started) });
+        this.buildServerList();
+      };
+      const timer = window.setTimeout(() => {
+        try { ws.close(); } catch { /* ignore */ }
+      }, 4000);
+      ws.onopen = () => {
+        window.clearTimeout(timer);
+        try { ws.close(); } catch { /* ignore */ }
+        done(true);
+      };
+      ws.onerror = () => {
+        window.clearTimeout(timer);
+        done(false);
+      };
+    }
+  }
+
+  // ---------- 拖拽(背包热键栏 ⇄ 装备槽,拖到世界丢弃) ----------
+
+  private bindDrag(): void {
+    window.addEventListener('pointermove', (e) => {
+      if (!this.drag) return;
+      this.drag.moved = true;
+      this.moveGhost(e.clientX, e.clientY);
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const delEl = under?.closest('.islot.del') as HTMLElement | null;
+      for (const d of document.querySelectorAll('.islot.del')) d.classList.toggle('hot', d === delEl);
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (!this.drag) return;
+      const drag = this.drag;
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const slotEl = under?.closest('.eslot') as HTMLElement | null;
+      const delEl = under?.closest('.islot.del') as HTMLElement | null;
+
+      if (delEl && drag.uid >= 0) {
+        this.cb.onDrop(drag.uid);
+      } else if (delEl && drag.slot >= 0) {
+        this.cb.onUnequip(drag.slot);
+      } else if (drag.uid >= 0) {
+        if (slotEl) {
+          const slot = Number(slotEl.dataset.slot);
+          if (slot < (this.self?.slots ?? 0)) this.cb.onEquip(drag.uid, slot);
+        } else if (under === document.getElementById('game')) {
+          // 拖到世界 = 丢弃
+          this.cb.onDrop(drag.uid);
+        }
+      } else if (drag.slot >= 0) {
+        // 拖已装备花瓣:点一下或拖出 = 卸下
+        if (!drag.moved || !slotEl || under === document.getElementById('game')) {
+          this.cb.onUnequip(drag.slot);
+        }
+      }
+      this.endDrag();
+    });
+
+    // 装备槽:按下开始拖动
+    this.equipRow.addEventListener('pointerdown', (e) => {
+      const slotEl = (e.target as HTMLElement).closest('.eslot') as HTMLElement | null;
+      if (!slotEl || !this.self) return;
+      const idx = Number(slotEl.dataset.slot);
+      if (idx >= this.self.slots || !this.self.slotList[idx]) return;
+      e.preventDefault();
+      this.drag = { uid: -1, slot: idx, moved: false };
+      this.ghost.classList.remove('hidden');
+      this.moveGhost(e.clientX, e.clientY);
+    });
+
+    // 背包热键栏:按下开始拖动 / 点击装备
+    this.invRow.addEventListener('pointerdown', (e) => {
+      const el = (e.target as HTMLElement).closest('.islot') as HTMLElement | null;
+      if (!el) return;
+      const idx = Number(el.dataset.idx);
+      const entry = this.invEntries[idx];
+      if (!entry || entry.uids.length === 0) return;
+      e.preventDefault();
+      this.drag = { uid: entry.uids[0], slot: -1, moved: false };
+      this.ghost.classList.remove('hidden');
+      this.moveGhost(e.clientX, e.clientY);
+    });
+
+    this.invRow.addEventListener('pointerup', (e) => {
+      const el = (e.target as HTMLElement).closest('.islot') as HTMLElement | null;
+      if (!el || !this.drag || this.drag.moved) return;
+      const idx = Number(el.dataset.idx);
+      if (this.drag.uid >= 0 && this.invEntries[idx]) this.equipEntry(idx);
+    });
+  }
+
+  private moveGhost(x: number, y: number): void {
+    if (!this.drag) return;
+    let inst: { id: string; rarity: number } | null = null;
+    if (this.drag.uid >= 0 && this.self) {
+      inst = this.self.inv.find((it) => it.uid === this.drag!.uid) ?? null;
+    } else if (this.drag.slot >= 0 && this.self) {
+      const s = this.self.slotList[this.drag.slot];
+      inst = s ? { id: s.id, rarity: s.rarity } : null;
+    }
+    if (!inst) return;
+    this.ghost.innerHTML = '';
+    const cv = document.createElement('canvas');
+    cv.width = 44;
+    cv.height = 44;
+    const c = cv.getContext('2d')!;
+    drawPetalIcon(c, inst.id, 22, 22, 17, inst.rarity);
+    this.ghost.appendChild(cv);
+    this.ghost.style.left = `${x}px`;
+    this.ghost.style.top = `${y}px`;
+  }
+
+  private endDrag(): void {
+    this.drag = null;
+    this.ghost.classList.add('hidden');
+  }
+
+  // ---------- 合成弹窗 ----------
+
+  private bindCraft(): void {
+    this.craftSelect.addEventListener('change', () => this.refreshCraftInfo());
+    this.craftGo.addEventListener('click', () => {
+      const val = this.craftSelect.value;
+      if (!val || !val.includes(':')) return;
+      const [id, rarity] = val.split(':');
+      this.cb.onCraft(id, Number(rarity));
+    });
+  }
+
+  toggleCraft(): void {
+    this.craftModal.classList.toggle('hidden');
+    if (!this.craftModal.classList.contains('hidden')) this.refreshCraftOptions();
+  }
+
+  closeCraft(): void {
+    this.craftModal.classList.add('hidden');
+  }
+
+  private refreshCraftOptions(): void {
+    if (!this.self) return;
+    const counts = new Map<string, number>();
+    for (const it of this.self.inv) {
+      const key = `${it.id}:${it.rarity}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const prev = this.craftSelect.value;
+    this.craftSelect.innerHTML = '';
+    const keys = [...counts.keys()].sort();
+    for (const key of keys) {
+      const [id, rarity] = key.split(':');
+      const def = getPetal(id);
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = `${def.name}·${rarityName(Number(rarity))} ×${counts.get(key)}`;
+      this.craftSelect.appendChild(opt);
+    }
+    if (keys.includes(prev)) this.craftSelect.value = prev;
+    else if (!keys.length) {
+      const opt = document.createElement('option');
+      opt.textContent = '背包空空如也';
+      this.craftSelect.appendChild(opt);
+    }
+    this.refreshCraftInfo();
+  }
+
+  private refreshCraftInfo(): void {
+    if (!this.self) return;
+    const val = this.craftSelect.value;
+    const c = this.craftPreview.getContext('2d')!;
+    c.clearRect(0, 0, this.craftPreview.width, this.craftPreview.height);
+    if (!val || !val.includes(':')) {
+      this.craftInfo.textContent = '选择要合成的花瓣';
+      this.craftGo.disabled = true;
+      return;
+    }
+    const [id, rarityS] = val.split(':');
+    const rarity = Number(rarityS);
+    const def = getPetal(id);
+    const count = this.self.inv.filter((it) => it.id === id && it.rarity === rarity).length;
+    const chance = rarity >= ETERNAL ? 0 : (CRAFT_SUCCESS[rarity] ?? 0);
+    const target = rarity + 1 <= ETERNAL ? rarityName(rarity + 1) : '不可合成';
+    this.craftInfo.innerHTML =
+      `${def.name}·${rarityName(rarity)}:拥有 <b>${count}</b>/${CRAFT_INPUT} → ${target}<br />` +
+      `成功率 <b>${(chance * 100).toFixed(chance < 0.01 ? 2 : 0)}%</b> · ${def.desc}`;
+    for (let i = 0; i < CRAFT_INPUT; i++) {
+      const cx = 27 + i * 49;
+      const filled = i < count;
+      if (!filled) c.globalAlpha = 0.22;
+      drawPetalIcon(c, id, cx, 28, 15, rarity);
+      c.globalAlpha = 1;
+    }
+    this.craftGo.disabled = count < CRAFT_INPUT || rarity >= ETERNAL;
+  }
+
+  // ---------- 聊天 ----------
+
+  private bindChat(): void {
+    this.chatInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        const text = this.chatInput.value.trim();
+        if (text) this.cb.onSendChat(text);
+        this.chatInput.value = '';
+        this.chatInput.blur();
+      } else if (e.key === 'Escape') {
+        this.chatInput.value = '';
+        this.chatInput.blur();
+      }
+    });
+  }
+
+  addChat(from: string, text: string): void {
+    const div = document.createElement('div');
+    div.className = 'chatline';
+    const b = document.createElement('b');
+    b.textContent = `${from}:`;
+    div.append(b, document.createTextNode(text));
+    this.chatLog.appendChild(div);
+    while (this.chatLog.children.length > 6) this.chatLog.firstChild?.remove();
+  }
+
+  addSysChat(text: string): void {
+    const div = document.createElement('div');
+    div.className = 'chatline sys';
+    div.textContent = text;
+    this.chatLog.appendChild(div);
+    while (this.chatLog.children.length > 6) this.chatLog.firstChild?.remove();
+  }
+
+  isChatFocused(): boolean {
+    return document.activeElement === this.chatInput;
+  }
+
+  focusChat(): void {
+    this.chatInput.focus();
+  }
+
+  // ---------- 状态刷新 ----------
+
+  setSelf(self: SelfState): void {
+    const first = !this.self;
+    this.self = self;
+
+    // 装备槽图标/稀有度底色/花瓣名
+    const sig = self.slotList.map((s) => (s ? `${s.id}:${s.rarity}` : '-')).join(',');
+    if (sig !== this.slotSig || first) {
+      const prev = this.slotSig.split(',');
+      this.slotSig = sig;
+      const curr = sig.split(',');
+      for (let i = 0; i < MAX_SLOTS; i++) {
+        const cv = this.slotCanvases[i];
+        const c = cv.getContext('2d')!;
+        c.clearRect(0, 0, cv.width, cv.height);
+        const el = this.slotEls[i];
+        const label = el.querySelector('.ename') as HTMLElement;
+        const s = self.slotList[i];
+        if (s) {
+          drawPetalIcon(c, s.id, 22, 21, 15, s.rarity);
+          el.style.background = RARITY_COLORS[s.rarity] ?? '#8a8f95';
+          label.textContent = PETAL_EN[s.id] ?? getPetal(s.id).name;
+          el.title = `${getPetal(s.id).name} · ${rarityName(s.rarity)}(${Math.round(s.hpPct * 100)}% 耐久)`;
+          if (prev[i] !== curr[i] && !el.classList.contains('pop')) {
+            el.classList.remove('pop');
+            void el.offsetWidth;
+            el.classList.add('pop');
+            window.setTimeout(() => el.classList.remove('pop'), 240);
+          }
+        } else {
+          el.style.background = '';
+          label.textContent = '';
+          el.title = '';
+        }
+      }
+    }
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const el = this.slotEls[i];
+      const locked = i >= self.slots;
+      el.classList.toggle('locked', locked);
+      const s = self.slotList[i];
+      el.classList.toggle('broken', !!s?.broken);
+      const durFill = el.querySelector('.dur > div') as HTMLDivElement;
+      durFill.style.width = s ? `${Math.max(0, s.hpPct) * 100}%` : '0%';
+      durFill.style.background = s && s.hpPct < 0.4 ? '#e05252' : '#6fdc6f';
+    }
+
+    // 背包热键栏(按 花瓣+稀有度 聚合)
+    const invSig = self.inv.map((it) => `${it.id}:${it.rarity}:${it.uid}`).join(',');
+    if (invSig !== this.invSig || first) {
+      this.invSig = invSig;
+      this.buildInvRow();
+      if (!this.craftModal.classList.contains('hidden')) this.refreshCraftOptions();
+    }
+
+    if (first) {
+      this.hud.classList.remove('hidden');
+      this.addSysChat('欢迎来到 glorr 花园,击杀生物收集花瓣吧');
+    }
+
+    // 左上角玩家卡(头像 + 名字 + 等级 + 经验)
+    const hudName = document.getElementById('hudname');
+    if (hudName) hudName.textContent = self.name;
+    const hudLvl = document.getElementById('hudlvl');
+    if (hudLvl) hudLvl.textContent = `Lvl ${self.level} Flower`;
+    const hudXp = document.getElementById('hudxp');
+    if (hudXp) hudXp.style.width = `${self.xpNeed > 0 ? Math.min(100, (self.xp / self.xpNeed) * 100) : 0}%`;
+    if (!this.hudAvatarDrawn) {
+      this.hudAvatarDrawn = true;
+      const cv = document.getElementById('hudavatar') as HTMLCanvasElement | null;
+      if (cv) {
+        const c = cv.getContext('2d');
+        if (c) {
+          c.clearRect(0, 0, cv.width, cv.height);
+          drawFlower(c, 26, 26, 16, -Math.PI / 2, {});
+        }
+      }
+    }
+  }
+
+  private buildInvRow(): void {
+    if (!this.self) return;
+    this.invRow.innerHTML = '';
+    const map = new Map<string, InvEntry>();
+    for (const it of this.self.inv) {
+      const key = `${it.id}:${it.rarity}`;
+      let entry = map.get(key);
+      if (!entry) {
+        entry = { id: it.id, rarity: it.rarity, uids: [] };
+        map.set(key, entry);
+      }
+      entry.uids.push(it.uid);
+    }
+    this.invEntries = [...map.values()].sort((a, b) => b.rarity - a.rarity);
+    this.invEntries.forEach((entry, idx) => {
+      const el = document.createElement('div');
+      el.className = 'islot';
+      el.dataset.idx = String(idx);
+      const cv = document.createElement('canvas');
+      cv.width = 36;
+      cv.height = 36;
+      cv.style.width = '36px';
+      cv.style.height = '36px';
+      cv.style.background = RARITY_COLORS[entry.rarity] ?? '#8a8f95';
+      cv.style.boxShadow = 'inset 0 2px 0 rgba(255,255,255,0.28)';
+      const c = cv.getContext('2d')!;
+      drawPetalIcon(c, entry.id, 18, 18, 12, entry.rarity);
+      const hk = document.createElement('span');
+      hk.className = 'hk';
+      hk.textContent = idx < 9 ? String(idx + 1) : idx === 9 ? '0' : '';
+      const cnt = document.createElement('span');
+      cnt.className = 'cnt';
+      cnt.textContent = entry.uids.length > 1 ? String(entry.uids.length) : '';
+      el.append(cv, hk, cnt);
+      el.title = `${getPetal(entry.id).name}·${rarityName(entry.rarity)} ×${entry.uids.length}(点击装备)`;
+      this.invRow.appendChild(el);
+    });
+    // 丢弃槽(红褐色,florr 背包最右侧)
+    const del = document.createElement('div');
+    del.className = 'islot del';
+    del.dataset.del = '1';
+    del.title = '拖到这里丢弃';
+    del.innerHTML =
+      '<svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm3 2v8h2v-8H9zm4 0v8h2v-8h-2z"/></svg>';
+    this.invRow.appendChild(del);
+  }
+
+  /** 热键/点击背包条目:装备到第一个空槽,满了放第 0 格 */
+  equipEntry(idx: number): void {
+    const entry = this.invEntries[idx];
+    if (!entry || entry.uids.length === 0 || !this.self) return;
+    let target = this.self.slotList.findIndex((x, i) => !x && i < this.self!.slots);
+    if (target < 0) target = 0;
+    this.cb.onEquip(entry.uids[0], target);
+  }
+
+  /** 每帧:装填/再生扫层 + 转速盘 */
+  tickSlots(): void {
+    if (!this.self) return;
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const s = this.self.slotList[i];
+      const overlay = this.slotEls[i].querySelector('.cdoverlay') as HTMLDivElement;
+      if (s && s.cdPct > 0.001) {
+        overlay.style.background = `conic-gradient(rgba(0,0,0,0.52) ${s.cdPct * 360}deg, transparent 0deg)`;
+      } else if (overlay.style.background) {
+        overlay.style.background = '';
+      }
+    }
+    this.drawRotGauge();
+  }
+
+  /** 右下角转速盘:实心圆 + 绕圈白点(florr 原作同款) */
+  private drawRotGauge(): void {
+    if (!this.self) return;
+    const cv = document.getElementById('rotgauge') as HTMLCanvasElement | null;
+    if (!cv) return;
+    const c = cv.getContext('2d');
+    if (!c) return;
+    const W = cv.width;
+    const cx = W / 2;
+    const cy = W / 2;
+    const R = W / 2 - 8;
+    c.clearRect(0, 0, W, W);
+    // 底盘
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.fillStyle = 'rgba(12, 22, 15, 0.62)';
+    c.fill();
+    c.lineWidth = 4;
+    c.strokeStyle = 'rgba(10, 16, 12, 0.75)';
+    c.stroke();
+    // 花心
+    c.beginPath();
+    c.arc(cx, cy, R * 0.26, 0, TAU);
+    c.fillStyle = '#ffd94d';
+    c.fill();
+    c.lineWidth = 2.5;
+    c.strokeStyle = 'rgba(40, 34, 10, 0.75)';
+    c.stroke();
+    // 绕圈白点 = 装备中的花瓣
+    const slots = this.self.slotList.filter((s) => s && !s.broken);
+    const n = Math.max(1, slots.length);
+    const rot = rotationSpeed(this.self.slotList);
+    const t = performance.now() / 1000;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + rot * t;
+      const px = cx + Math.cos(a) * R * 0.66;
+      const py = cy + Math.sin(a) * R * 0.66;
+      c.beginPath();
+      c.arc(px, py, 3.6, 0, TAU);
+      c.fillStyle = '#ffffff';
+      c.fill();
+      c.lineWidth = 1.5;
+      c.strokeStyle = 'rgba(20, 24, 20, 0.6)';
+      c.stroke();
+    }
+    const label = document.getElementById('rotlabel');
+    if (label) label.textContent = `旋转 ${Math.round((rot / PLAYER.baseRotation) * 100)}%`;
+  }
+
+  /** 玩家列表(自己 + 视野内玩家) */
+  updatePlayerList(): void {
+    if (!this.self) return;
+    const rows: [number, string, number, boolean][] = [];
+    rows.push([this.net.selfId, this.self.name, this.self.level, true]);
+    for (const [id, e] of this.net.ents) {
+      if (e.kind !== 'p' || id === this.net.selfId || !e.name) continue;
+      const info = this.net.othersInfo.get(id);
+      rows.push([id, e.name, info?.level ?? 1, false]);
+    }
+    const sig = rows.map((r) => `${r[0]}:${r[2]}`).join(',');
+    if (sig === this.playerSig) return;
+    this.playerSig = sig;
+
+    this.playerList.innerHTML = '';
+    for (const [id, name, level, isSelf] of rows) {
+      const row = document.createElement('div');
+      row.className = `prow${isSelf ? ' self' : ''}`;
+      const cv = document.createElement('canvas');
+      cv.width = 30;
+      cv.height = 30;
+      const c = cv.getContext('2d')!;
+      drawFlower(c, 15, 15, 9, -Math.PI / 2, {});
+      const meta = document.createElement('div');
+      meta.className = 'pmeta';
+      const n = document.createElement('span');
+      n.className = 'pname';
+      n.textContent = name;
+      const l = document.createElement('span');
+      l.className = 'plvl';
+      l.textContent = `Lv ${level}`;
+      meta.append(n, l);
+      row.append(cv, meta);
+      this.playerList.appendChild(row);
+    }
+  }
+
+  drawMinimapFrame(): void {
+    drawMinimap(
+      document.getElementById('minimap') as HTMLCanvasElement,
+      this.net,
+      WORLD.radius,
+      WORLD.safeRadius,
+    );
+  }
+
+  setLatency(ms: number): void {
+    const el = document.getElementById('pingspan');
+    if (el) el.textContent = ms > 0 ? `${ms}ms` : '';
+  }
+
+  /** 小地图区域名(进入 PvP 区时提示) */
+  setZoneText(text: string): void {
+    const el = document.getElementById('zonetext');
+    if (el) el.textContent = text;
+  }
+
+  // ---------- Toast / 死亡 ----------
+
+  toast(text: string): void {
+    const div = document.createElement('div');
+    div.className = 'toast';
+    div.textContent = text;
+    this.toastsEl.appendChild(div);
+    window.setTimeout(() => {
+      div.classList.add('fade');
+      window.setTimeout(() => div.remove(), 450);
+    }, 2200);
+    while (this.toastsEl.children.length > 4) this.toastsEl.firstChild?.remove();
+  }
+
+  showDeath(level: number, kills: number, lost = ''): void {
+    this.deathLevel.textContent = String(level);
+    this.deathKills.textContent = String(kills);
+    const lostEl = document.getElementById('deathlost');
+    if (lostEl) lostEl.textContent = lost ? `损失:${lost}` : '';
+    this.deathScreen.classList.remove('hidden');
+  }
+
+  hideDeath(): void {
+    this.deathScreen.classList.add('hidden');
+  }
+
+  hideLoading(): void {
+    document.getElementById('loadingscreen')!.classList.add('hidden');
+  }
+
+  showMenu(): void {
+    document.getElementById('menuscreen')!.classList.remove('hidden');
+  }
+
+  hideMenu(): void {
+    document.getElementById('menuscreen')!.classList.add('hidden');
+  }
+
+  // ---------- 背包 / 天赋 / 图鉴(左下三个功能键) ----------
+
+  private invModal = document.getElementById('invmodal')!;
+  private talentModal = document.getElementById('talentmodal')!;
+  private bestModal = document.getElementById('bestmodal')!;
+  talents: Record<string, number> = {};
+  tp = 0;
+
+  loadTalents(): void {
+    try {
+      const raw = localStorage.getItem('glorr.talents');
+      if (raw) this.talents = JSON.parse(raw) as Record<string, number>;
+      this.tp = Number(localStorage.getItem('glorr.tp') ?? '0') || 0;
+    } catch {
+      /* 忽略损坏的本地数据 */
+    }
+    this.cb.onTalents(this.talents);
+    this.refreshTalents();
+  }
+
+  saveTalents(): void {
+    localStorage.setItem('glorr.talents', JSON.stringify(this.talents));
+    localStorage.setItem('glorr.tp', String(this.tp));
+  }
+
+  /** 升级奖励天赋点:普通 +1,尾数 5 额外 +1,尾数 0 额外 +9 */
+  grantTp(level: number): number {
+    const gain = 1 + (level % 10 === 5 ? 1 : 0) + (level % 10 === 0 ? 9 : 0);
+    this.tp += gain;
+    this.saveTalents();
+    this.refreshTalents();
+    return gain;
+  }
+
+  private showModal(which: 'inv' | 'tal' | 'best' | null): void {
+    this.invModal.classList.toggle('hidden', which !== 'inv');
+    this.talentModal.classList.toggle('hidden', which !== 'tal');
+    this.bestModal.classList.toggle('hidden', which !== 'best');
+  }
+
+  toggleInventory(): void {
+    const open = this.invModal.classList.contains('hidden');
+    this.showModal(open ? 'inv' : null);
+    if (open) this.buildInventory();
+  }
+
+  toggleTalents(): void {
+    const open = this.talentModal.classList.contains('hidden');
+    this.showModal(open ? 'tal' : null);
+    if (open) this.refreshTalents();
+  }
+
+  toggleBestiary(): void {
+    const open = this.bestModal.classList.contains('hidden');
+    this.showModal(open ? 'best' : null);
+    if (open) this.buildBestiary();
+  }
+
+  closeAllPanels(): void {
+    this.showModal(null);
+    this.craftModal.classList.add('hidden');
+    this.settingsModal.classList.add('hidden');
+  }
+
+  /** 仅关闭背包/天赋/图鉴三个面板(不碰合成/设置) */
+  closePanels(): void {
+    this.showModal(null);
+  }
+
+  private buildInventory(): void {
+    const grid = document.getElementById('invgrid');
+    if (!grid || !this.self) return;
+    grid.innerHTML = '';
+    const byRarity = new Map<number, Map<string, number>>();
+    for (const it of this.self.inv) {
+      let m = byRarity.get(it.rarity);
+      if (!m) {
+        m = new Map();
+        byRarity.set(it.rarity, m);
+      }
+      m.set(it.id, (m.get(it.id) ?? 0) + 1);
+    }
+    const rarities = [...byRarity.keys()].sort((a, b) => b - a);
+    for (const r of rarities) {
+      const m = byRarity.get(r)!;
+      const group = document.createElement('div');
+      group.className = 'invgroup';
+      const head = document.createElement('h4');
+      const total = [...m.values()].reduce((a, b) => a + b, 0);
+      head.textContent = `${RARITY_EN[r] ?? rarityName(r)} · ${total}`;
+      const rows = document.createElement('div');
+      rows.className = 'invrows';
+      for (const [id, count] of m) {
+        const cell = document.createElement('div');
+        cell.className = 'invcell';
+        cell.style.background = RARITY_COLORS[r] ?? '#8a8f95';
+        const cv = document.createElement('canvas');
+        cv.width = 40;
+        cv.height = 40;
+        drawPetalIcon(cv.getContext('2d')!, id, 20, 20, 14, r);
+        const n = document.createElement('span');
+        n.className = 'n';
+        n.textContent = String(count);
+        cell.append(cv, n);
+        cell.title = `${getPetal(id).name}·${rarityName(r)} ×${count}(点击装备)`;
+        cell.addEventListener('click', () => this.equipById(id, r));
+        rows.appendChild(cell);
+      }
+      group.append(head, rows);
+      grid.appendChild(group);
+    }
+    if (!rarities.length) {
+      const empty = document.createElement('div');
+      empty.className = 'fhint';
+      empty.textContent = '背包是空的,去打怪捡花瓣吧';
+      grid.appendChild(empty);
+    }
+    const cnt = document.getElementById('invcount');
+    if (cnt) cnt.textContent = `${this.self.inv.length} 片`;
+  }
+
+  private equipById(id: string, rarity: number): void {
+    const it = this.self?.inv.find((x) => x.id === id && x.rarity === rarity);
+    if (!it || !this.self) return;
+    let target = this.self.slotList.findIndex((x, i) => !x && i < this.self!.slots);
+    if (target < 0) target = 0;
+    this.cb.onEquip(it.uid, target);
+  }
+
+  private refreshTalents(): void {
+    const tree = document.getElementById('talenttree');
+    if (!tree) return;
+    tree.innerHTML = '';
+    for (const t of TALENTS) {
+      const lv = this.talents[t.id] ?? 0;
+      const cost = t.baseCost + lv;
+      const maxed = lv >= t.max;
+      const node = document.createElement('div');
+      node.className = `tnode${maxed ? ' maxed' : ''}${!maxed && this.tp < cost ? ' poor' : ''}`;
+      const cv = document.createElement('canvas');
+      cv.width = 54;
+      cv.height = 54;
+      drawTalentBadge(cv.getContext('2d')!, t.id, 27, 27, 24);
+      const name = document.createElement('span');
+      name.className = 'tl';
+      name.textContent = `${t.name} ${lv}/${t.max}`;
+      const cst = document.createElement('span');
+      cst.className = 'tc';
+      cst.textContent = maxed ? '已满级' : `${cost} TP`;
+      node.append(cv, name, cst);
+      node.title = t.desc;
+      node.addEventListener('click', () => {
+        const cur = this.talents[t.id] ?? 0;
+        const price = t.baseCost + cur;
+        if (cur >= t.max || this.tp < price) return;
+        this.talents[t.id] = cur + 1;
+        this.tp -= price;
+        this.saveTalents();
+        this.refreshTalents();
+        this.cb.onTalents(this.talents);
+        this.toast(`天赋「${t.name}」提升到 ${cur + 1} 级`);
+      });
+      tree.appendChild(node);
+    }
+    const tpEl = document.getElementById('tpnum');
+    if (tpEl) tpEl.textContent = String(this.tp);
+  }
+
+  private buildBestiary(): void {
+    const list = document.getElementById('bestlist');
+    if (!list) return;
+    list.innerHTML = '';
+    MOBS.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'brow';
+      const cv = document.createElement('canvas');
+      cv.width = 30;
+      cv.height = 30;
+      drawMob(cv.getContext('2d')!, i, 15, 15, 10, -Math.PI / 2, 0, 0, 1, 0);
+      const nm = document.createElement('span');
+      nm.className = 'bn';
+      nm.textContent = m.name;
+      const st = document.createElement('span');
+      st.className = 'bs';
+      const behavior = { passive: '被动', neutral: '中立', aggressive: '敌对', static: '静止' }[m.behavior] ?? '—';
+      st.innerHTML = `生命 <b>${m.hp}</b> · 伤害 <b>${m.dmg}</b> · 经验 <b>${m.xp}</b> · ${behavior}`;
+      row.append(cv, nm, st);
+      list.appendChild(row);
+    });
+    const c = document.getElementById('bestcount');
+    if (c) c.textContent = `${MOBS.length} 种`;
+  }
+
+  /** 升级时闪一下经验条 */
+  flashLevel(): void {
+    const w = document.querySelector('.xpwrap') as HTMLElement | null;
+    if (!w) return;
+    w.classList.remove('levelup');
+    void w.offsetWidth;
+    w.classList.add('levelup');
+  }
+}

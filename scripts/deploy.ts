@@ -39,10 +39,11 @@ function gh(method: string, apiPath: string, body?: unknown): Record<string, any
 
 // ---------- 收集要部署的文件 ----------
 function collectFiles(): string[] {
-  const roots = ['src', 'docs', 'scripts'];
+  // florr/ 是重写后的唯一源码根;src/ 暂留作参照(A 阶段验证通过后再删)
+  const roots = ['florr', 'docs', 'scripts', 'src'];
   const rootFiles = [
     'package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts',
-    '.gitignore', 'README.md', 'Dockerfile', 'docker-compose.yml',
+    '.gitignore', 'README.md', 'REWRITE.md', 'Dockerfile', 'docker-compose.yml',
     'fly.toml', 'render.yaml', 'context.md', '.dockerignore',
   ];
   const skip = (p: string) => /(^|\/)(node_modules|\.git|\.workbuddy)(\/|$)/.test(p) || /\.pat$/.test(p) || /\.log$/.test(p) || /(^|\/)dist(\/|$)/.test(p);

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>glorr — 账号</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23ffd94d'/><circle cx='16' cy='6' r='5' fill='%23ff8fb3'/><circle cx='16' cy='26' r='5' fill='%23ff8fb3'/><circle cx='6' cy='16' r='5' fill='%23ff8fb3'/><circle cx='26' cy='16' r='5' fill='%23ff8fb3'/></svg>" />
+  <link rel="stylesheet" href="./account.css" />
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="../">← 返回游戏</a>
+    <div class="card">
+      <div class="logo">glorr<span>账号</span></div>
+
+      <div id="authview">
+        <div class="tabs">
+          <button id="tab-login" class="tab active" type="button">登录</button>
+          <button id="tab-register" class="tab" type="button">注册</button>
+        </div>
+        <input id="acc-name" maxlength="12" placeholder="名称(注册后不可修改)" autocomplete="username" />
+        <input id="acc-pass" type="password" placeholder="密码(至少 4 位)" autocomplete="current-password" />
+        <div id="acc-msg" class="msg"></div>
+        <button id="acc-go" class="btn primary" type="button">登录</button>
+        <div class="hint">账号与存档默认存于本机 localStorage;可登录后连接 GitHub 做跨设备同步。</div>
+      </div>
+
+      <div id="profileview" class="hidden">
+        <div class="phead">
+          <div class="avatar" id="pavatar"></div>
+          <div>
+            <div class="pname" id="pname">—</div>
+            <div class="pmeta" id="pmeta">—</div>
+          </div>
+        </div>
+        <div class="sectitle">背包</div>
+        <div id="pinv" class="pinv"></div>
+        <div class="sectitle">GitHub 同步(可选)</div>
+        <input id="gh-token" type="password" placeholder="GitHub Token(仅存本机;建议细粒度 contents 读写)" />
+        <input id="gh-repo" placeholder="仓库 owner/repo(默认 apple-PC/glorr)" />
+        <div class="row">
+          <button id="gh-push" class="btn ghost" type="button">上传存档到 GitHub</button>
+          <button id="gh-pull" class="btn ghost" type="button">从 GitHub 拉取</button>
+        </div>
+        <div id="gh-msg" class="msg"></div>
+        <div class="row">
+          <button id="logout" class="btn danger" type="button">退出登录</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./account.ts"></script>
+</body>
+</html>

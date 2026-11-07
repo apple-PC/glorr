@@ -1,35 +1,26 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
-// glorr 客户端构建配置
-// - 开发:vite(5173) 通过 /ws 代理到本地服务端(8080)
-// - 生产:构建到 dist/client,由服务端静态托管或 GitHub Pages 托管
+// 重写后的构建入口:florr/ 为唯一源码根(分层见 REWRITE.md)
+// 旧 src/ 暂时保留作参照,A 阶段线上验证通过后再删除。
+const ROOT = fileURLToPath(new URL('./florr', import.meta.url));
 export default defineConfig({
-  root: 'src/client',
+  root: ROOT,
   resolve: {
     alias: {
-      '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
-      '@client': fileURLToPath(new URL('./src/client', import.meta.url)),
+      '@': ROOT,
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      '/ws': {
-        target: 'ws://localhost:8080',
-        ws: true,
-      },
-    },
-  },
+  server: { port: 5173 },
   build: {
-    outDir: '../../dist/client',
+    outDir: fileURLToPath(new URL('./dist/client', import.meta.url)),
     emptyOutDir: true,
     target: 'es2022',
     rollupOptions: {
       input: {
-        index: fileURLToPath(new URL('./src/client/index.html', import.meta.url)),
-        admin: fileURLToPath(new URL('./src/client/admin/index.html', import.meta.url)),
-        account: fileURLToPath(new URL('./src/client/account/index.html', import.meta.url)),
+        index: fileURLToPath(new URL('./florr/index.html', import.meta.url)),
+        admin: fileURLToPath(new URL('./florr/admin/index.html', import.meta.url)),
+        account: fileURLToPath(new URL('./florr/account/index.html', import.meta.url)),
       },
     },
   },

@@ -14,10 +14,11 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
+      "@/*": ["florr/*"],
       "@shared/*": ["src/shared/*"],
       "@client/*": ["src/client/*"]
     },
     "types": ["node"]
   },
-  "include": ["src", "scripts", "vite.config.ts"]
+  "include": ["florr", "scripts", "vite.config.ts"]
 }

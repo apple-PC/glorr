@@ -215,7 +215,13 @@ async function main(): Promise<void> {
     const slots = await cdp.eval(`document.querySelectorAll('#equiprow .eslot canvas').length`);
     allOk = check('花瓣槽位已渲染', typeof slots === 'number' && slots >= 5, `${slots} 个槽位`) && allOk;
 
-    // 新版程序化花园:圆石障碍 + 中央湖泊 + 出生点合法
+    // 全内容数据层:花瓣/生物/区域清单必须铺满(防止重写时退化回旧 17 种)
+    const content = (await cdp.eval(`window.__content`)) as { petals: number; mobs: number; areas: number; dungeons: number; npcs: number } | null;
+    allOk = check('花瓣全量清单(>=110)', typeof content?.petals === 'number' && content.petals >= 110, `${content?.petals} 种`) && allOk;
+    allOk = check('生物全量清单(>=60)', typeof content?.mobs === 'number' && content.mobs >= 60, `${content?.mobs} 种`) && allOk;
+    allOk = check('区域+地下城清单(>=12)', typeof content?.areas === 'number' && content.areas >= 12, `${content?.areas} 区 / ${content?.dungeons} 地下城 / ${content?.npcs} NPC`) && allOk;
+
+    // 花园几何:圆石障碍 + 中央湖泊 + 出生点合法
     const mapInfo = (await cdp.eval(`window.__map`)) as {
       boulders: number;
       blockedLake: boolean;
