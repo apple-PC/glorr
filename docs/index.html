@@ -241,30 +241,7 @@
   </div>
 
   <div id="dragghost" class="hidden"></div>
-<div class="afd-bar">
-  <span class="afd-text">💛 如果这个项目对你有帮助，欢迎在 <a class="afd-link" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">爱发电</a> 支持我</span>
-  <a class="afd-go" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">前往支持</a>
-</div>
-<div class="afd-modal" id="afdModal" role="dialog" aria-modal="true">
-  <div class="afd-card">
-    <button class="afd-close" id="afdClose" aria-label="关闭">×</button>
-    <div class="afd-emoji">💛</div>
-    <h3>喜欢我的作品吗？</h3>
-    <p>如果这个网站帮到了你，欢迎在 <a href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">爱发电</a> 请我喝杯奶茶 ☕<br>你的支持是我继续创作的动力～</p>
-    <a class="afd-support" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">前往爱发电支持</a>
-  </div>
-</div>
-<script>
-(function(){
-  try{
-    if(localStorage.getItem('afd_dismissed')==='1') return;
-    var m=document.getElementById('afdModal'); if(!m) return;
-    m.classList.add('afd-show');
-    function close(){ m.classList.remove('afd-show'); try{localStorage.setItem('afd_dismissed','1');}catch(e){} }
-    var c=document.getElementById('afdClose'); if(c) c.onclick=close;
-    m.addEventListener('click',function(e){ if(e.target===m) close(); });
-  }catch(e){}
-})();
-</script>
+
+<script defer src="https://apple-pc.github.io/macl/afd-float.js"></script>
 </body>
 </html>
