@@ -11,6 +11,25 @@
   <link rel="modulepreload" crossorigin href="./assets/petals-uy9ljU0S.js">
   <link rel="modulepreload" crossorigin href="./assets/servers-DQAy1D5A.js">
   <link rel="stylesheet" crossorigin href="./assets/index-CdQCS5wD.css">
+<style>
+.afd-bar{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 16px;background:rgba(255,252,248,.97);border-top:1px solid #ffe2c4;box-shadow:0 -2px 14px rgba(255,122,0,.10);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;color:#8a5a1e;}
+.afd-bar .afd-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.afd-bar a.afd-link{color:#ff7a00;font-weight:600;text-decoration:none;}
+.afd-bar a.afd-go{margin-left:auto;flex:0 0 auto;background:linear-gradient(135deg,#ffa64d,#ff6a00);color:#fff;padding:7px 16px;border-radius:999px;font-weight:600;text-decoration:none;box-shadow:0 2px 10px rgba(255,106,0,.30);}
+.afd-bar a.afd-go:active{transform:translateY(1px);}
+.afd-modal{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(20,12,0,.45);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+.afd-modal.afd-show{display:flex;}
+.afd-card{position:relative;width:min(360px,92vw);background:#fff;border-radius:22px;padding:30px 24px 26px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.28);animation:afdPop .26s cubic-bezier(.2,.8,.3,1.2);}
+@keyframes afdPop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+.afd-card .afd-close{position:absolute;top:12px;right:15px;border:none;background:none;font-size:24px;line-height:1;color:#cfcfcf;cursor:pointer;padding:4px;}
+.afd-card .afd-emoji{font-size:42px;line-height:1;}
+.afd-card h3{margin:10px 0 8px;font-size:19px;color:#2b2b2b;}
+.afd-card p{margin:0 0 20px;font-size:14px;line-height:1.65;color:#6b6b6b;}
+.afd-card p a{color:#ff7a00;font-weight:600;text-decoration:none;}
+.afd-card a.afd-support{display:inline-block;background:linear-gradient(135deg,#ffa64d,#ff6a00);color:#fff;padding:12px 28px;border-radius:999px;font-weight:600;font-size:15px;text-decoration:none;box-shadow:0 6px 18px rgba(255,106,0,.35);}
+.afd-card a.afd-support:active{transform:translateY(1px);}
+@media(max-width:520px){.afd-bar{font-size:13px;gap:10px;}.afd-bar a.afd-go{padding:6px 12px;}}
+</style>
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -222,5 +241,30 @@
   </div>
 
   <div id="dragghost" class="hidden"></div>
+<div class="afd-bar">
+  <span class="afd-text">💛 如果这个项目对你有帮助，欢迎在 <a class="afd-link" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">爱发电</a> 支持我</span>
+  <a class="afd-go" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">前往支持</a>
+</div>
+<div class="afd-modal" id="afdModal" role="dialog" aria-modal="true">
+  <div class="afd-card">
+    <button class="afd-close" id="afdClose" aria-label="关闭">×</button>
+    <div class="afd-emoji">💛</div>
+    <h3>喜欢我的作品吗？</h3>
+    <p>如果这个网站帮到了你，欢迎在 <a href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">爱发电</a> 请我喝杯奶茶 ☕<br>你的支持是我继续创作的动力～</p>
+    <a class="afd-support" href="https://afdian.com/a/apple-pc" target="_blank" rel="noopener">前往爱发电支持</a>
+  </div>
+</div>
+<script>
+(function(){
+  try{
+    if(localStorage.getItem('afd_dismissed')==='1') return;
+    var m=document.getElementById('afdModal'); if(!m) return;
+    m.classList.add('afd-show');
+    function close(){ m.classList.remove('afd-show'); try{localStorage.setItem('afd_dismissed','1');}catch(e){} }
+    var c=document.getElementById('afdClose'); if(c) c.onclick=close;
+    m.addEventListener('click',function(e){ if(e.target===m) close(); });
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
