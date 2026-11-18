@@ -14,14 +14,36 @@
   <!-- ============ 游玩 HUD ============ -->
   <div id="hud" class="hidden">
     <div id="iconrow">
+      <button class="iconbtn" id="hudsettingsbtn" title="设置">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L3.16 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
+      <a class="iconbtn" href="account/" target="_blank" rel="noopener" title="账号">
+        <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z"/></svg>
+      </a>
+      <button class="iconbtn" id="hudpetbtn" title="图鉴">
+        <svg viewBox="0 0 24 24"><path d="M12 2 4 6v12l8 4 8-4V6l-8-4zm0 2.3 5.5 2.8L12 9.9 6.5 7.1 12 4.3zM6 9l5 2.5V19l-5-2.5V9zm7 10v-7.5L18 9v7.5l-5 2.5z"/></svg>
+      </button>
       <a class="iconbtn" id="ghbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
-      <button class="iconbtn" id="hudsettingsbtn" title="设置(服务器切换)">
-        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L3.16 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
-      </button>
       <button class="iconbtn" id="soundbtn" title="音效开关">
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>
+      </button>
+    </div>
+
+    <!-- 左下斜置能力键:加速(Z)/磁铁(X)/治疗(C) -->
+    <div id="talentbar">
+      <button class="tbtn speed" data-talent="speed" title="加速 (Z)">
+        <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13H11l-1 9L19.5 10H13l1-8z"/></svg>
+        <span class="tkey">Z</span>
+      </button>
+      <button class="tbtn magnet" data-talent="magnet" title="磁铁 (X)">
+        <svg viewBox="0 0 24 24"><path d="M7 2a5 5 0 0 0-5 5v6h4V7a1 1 0 0 1 2 0v6h4V7a5 5 0 0 0-5-5zm0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm10-3a5 5 0 0 0-5 5v6h4V7a1 1 0 0 1 2 0v6h4V7a5 5 0 0 0-5-5z"/></svg>
+        <span class="tkey">X</span>
+      </button>
+      <button class="tbtn heal" data-talent="heal" title="治疗 (C)">
+        <svg viewBox="0 0 24 24"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7V3z"/></svg>
+        <span class="tkey">C</span>
       </button>
     </div>
 
@@ -123,10 +145,18 @@
   <div id="settingsmodal" class="hidden">
     <div class="modalbox">
       <div class="mtitle">设置</div>
+      <div class="stabbar">
+        <button class="stab active">游戏</button><button class="stab">图像</button><button class="stab">控制</button><button class="stab">其他</button><button class="stab">Data</button>
+      </div>
       <div class="sgroup">服务器</div>
       <div id="serverlist"></div>
       <div class="sgroup">音效</div>
       <label class="scheck"><input type="checkbox" id="soundtoggle" checked /> 开启音效</label>
+      <div class="sgroup">游戏</div>
+      <label class="scheck"><input type="checkbox" /> 自动加入队伍</label>
+      <label class="scheck"><input type="checkbox" checked /> 接收小队邀请</label>
+      <label class="scheck"><input type="checkbox" /> 隐藏其他人的花瓣</label>
+      <label class="scheck"><input type="checkbox" /> 自动装备掉落物</label>
       <div id="adminlinkrow" class="hidden">
         <a id="adminlink" href="/admin" target="_blank" rel="noopener" class="ghostbtn">打开管理后台</a>
       </div>
@@ -182,12 +212,18 @@
   <div id="menuscreen" class="hidden">
     <canvas id="menubg"></canvas>
     <div id="menuicons">
-      <a class="iconbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="GitHub 仓库">
-        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-      </a>
-      <button class="iconbtn" id="menusettingsbtn" title="设置(服务器切换)">
+      <button class="iconbtn" id="menusettingsbtn" title="设置">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L3.16 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
       </button>
+      <a class="iconbtn" href="account/" target="_blank" rel="noopener" title="账号">
+        <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z"/></svg>
+      </a>
+      <a class="iconbtn" href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener" title="图鉴(仓库)">
+        <svg viewBox="0 0 24 24"><path d="M12 2 4 6v12l8 4 8-4V6l-8-4zm0 2.3 5.5 2.8L12 9.9 6.5 7.1 12 4.3zM6 9l5 2.5V19l-5-2.5V9zm7 10v-7.5L18 9v7.5l-5 2.5z"/></svg>
+      </a>
+      <a class="iconbtn" href="https://discord.com" target="_blank" rel="noopener" title="Discord">
+        <svg viewBox="0 0 24 24"><path d="M20.3 4.4A19 19 0 0 0 15.5 3l-.5 1a17 17 0 0 1 4.3 1.4A16 16 0 0 0 12 4a16 16 0 0 0-7.3 1.4A17 17 0 0 1 9 4l-.5-1A19 19 0 0 0 3.7 4.4C1 8.4.3 12.3.7 16.2a19 19 0 0 0 5.8 2.9l1.2-2a12 12 0 0 1-1.9-.9l.4-.3a13.6 13.6 0 0 0 11.6 0l.4.3a12 12 0 0 1-1.9.9l1.2 2a19 19 0 0 0 5.8-2.9c.5-4.5-.8-8.4-3-11.8zM8.5 14c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/></svg>
+      </a>
       <button class="iconbtn" id="menusoundbtn" title="音效开关">
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>
       </button>
@@ -198,17 +234,22 @@
         <canvas id="accavatar" width="34" height="34"></canvas>
         <div class="pmeta"><span class="pname" id="chipname">—</span><span class="plvl" id="chiplevel">—</span></div>
       </div>
-      <button id="readybtn" class="greenbtn big">准备就绪 ▶</button>
+      <button id="readybtn" class="greenbtn big">Ready ▶</button>
       <div id="maprow">
-        <button class="mapbtn garden" id="map-garden">花园</button>
-        <button class="mapbtn desert" disabled>沙漠<i>soon</i></button>
-        <button class="mapbtn ocean" disabled>海洋<i>soon</i></button>
-        <button class="mapbtn jungle" disabled>丛林<i>soon</i></button>
-        <button class="mapbtn hell" disabled>深渊<i>soon</i></button>
+        <button class="mapbtn garden" id="map-garden">Garden</button>
+        <button class="mapbtn desert" disabled>Desert<i>soon</i></button>
+        <button class="mapbtn ocean" disabled>Ocean<i>soon</i></button>
+        <button class="mapbtn jungle" disabled>Jungle<i>soon</i></button>
+        <button class="mapbtn hell" disabled>Hell<i>soon</i></button>
       </div>
-      <div id="menuhint">受 florr.io 启发的社区作品 · 资产原创 · <a href="account/">账号/存档</a> · <a href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener">GitHub</a></div>
+      <div id="menuhint">Made by apple-PC · 社区作品 · <a href="account/">账号</a> · <a href="https://github.com/apple-PC/glorr" target="_blank" rel="noopener">GitHub</a></div>
     </div>
-    <div id="copyright">© 2026 glorr community</div>
+    <div id="serverpanel">
+      <div class="sp-hd">周边人数:0 · 掉落概率:100.00%</div>
+      <div class="sp-row"><span>You're <b>Online</b></span><span>US <b>--</b> EU <b>--</b></span></div>
+      <div class="sp-row"><span>AS <b>--</b> Code <b>262r</b></span><span>FPS <b>60</b> Ping <b>0ms</b></span></div>
+    </div>
+    <div id="copyright">© 2026 M28 Games · glorr community</div>
   </div>
 
   <!-- ============ 加载屏 ============ -->

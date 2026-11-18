@@ -4,7 +4,7 @@ import { getPetal } from '@/data/petals';
 import { MOBS } from '@/data/mobs';
 import { DEFAULT_SERVER_ID, SERVERS } from '@/sim/servers';
 import type { GameConn, SelfState } from '@/sim/conn';
-import { drawFlower, drawMob, drawPetalIcon, drawTalentBadge, PETAL_EN } from '@/view/sprites';
+import { drawFlower, drawMob, drawPetalIcon, drawTalentBadge } from '@/view/sprites';
 import { drawMinimap } from '@/view/minimap';
 import { rotationSpeed } from '@/data/petals';
 import { TAU } from '@/sim/math';
@@ -105,13 +105,16 @@ export class Ui {
       cv.style.height = '44px';
       const label = document.createElement('span');
       label.className = 'ename';
+      const hknum = document.createElement('span');
+      hknum.className = 'hknum';
+      hknum.textContent = i < 9 ? `(${i + 1})` : i === 9 ? '(0)' : '';
       const overlay = document.createElement('div');
       overlay.className = 'cdoverlay';
       const dur = document.createElement('div');
       dur.className = 'dur';
       const durFill = document.createElement('div');
       dur.appendChild(durFill);
-      slot.append(cv, label, overlay, dur);
+      slot.append(cv, label, hknum, overlay, dur);
       this.equipRow.appendChild(slot);
       this.slotEls.push(slot);
       this.slotCanvases.push(cv);
@@ -125,6 +128,7 @@ export class Ui {
     document.getElementById('bagbtn')!.addEventListener('click', () => this.toggleInventory());
     document.getElementById('talentbtn')!.addEventListener('click', () => this.toggleTalents());
     document.getElementById('bestbtn')!.addEventListener('click', () => this.toggleBestiary());
+    document.getElementById('hudpetbtn')?.addEventListener('click', () => this.toggleBestiary());
     document.getElementById('craftclose')!.addEventListener('click', () => this.craftModal.classList.add('hidden'));
     for (const btn of document.querySelectorAll<HTMLElement>('[data-close]')) {
       btn.addEventListener('click', () => {
@@ -552,7 +556,8 @@ export class Ui {
         if (s) {
           drawPetalIcon(c, s.id, 22, 21, 15, s.rarity);
           el.style.background = RARITY_COLORS[s.rarity] ?? '#8a8f95';
-          label.textContent = PETAL_EN[s.id] ?? getPetal(s.id).name;
+          // 原版槽底显示稀有度名(Common/Unusual...),不是花瓣名
+          label.textContent = RARITY_EN[s.rarity] ?? rarityName(s.rarity);
           el.title = `${getPetal(s.id).name} · ${rarityName(s.rarity)}(${Math.round(s.hpPct * 100)}% 耐久)`;
           if (prev[i] !== curr[i] && !el.classList.contains('pop')) {
             el.classList.remove('pop');

@@ -210,6 +210,3 @@ TypeScript(全量 strict)· Node 22 + ws · Canvas 2D · Vite · Docker。账号
 ## License
 
 MIT
-## 💛 支持作者
-
-如果这个项目对你有帮助，欢迎在 [爱发电](https://afdian.com/a/apple-pc) 支持我，你的支持是我继续创作的动力～

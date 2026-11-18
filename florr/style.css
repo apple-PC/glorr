@@ -870,7 +870,7 @@ html, body {
   background: rgba(20, 30, 22, 0.4);
   border-color: rgba(0, 0, 0, 0.35);
 }
-.eslot canvas { display: block; margin-bottom: 9px; }
+.eslot canvas { display: block; margin-bottom: 6px; }
 .eslot .ename {
   position: absolute;
   left: 0; right: 0; bottom: -1px;
@@ -1129,3 +1129,260 @@ html, body {
   #rotwrap { display: none; }
   #chatwrap { display: none; }
 }
+
+/* ============================================================================
+   原版 florr 还原皮肤(2026-11,覆盖层)
+   依据 Edge 登录号实机 v2.6.8 + 内置浏览器游客号截图逐项对齐:
+   纯草绿底 / 白色黑描边粗体 / 左上彩色方图标 / 玩家名条+黄绿经验条 /
+   右上黑底方小地图 / 底部稀有度色槽+数字键 / 左下斜置能力键(Z/X/C) /
+   右下背包 / 灰色经典设置窗。名字仍为 glorr。
+   ============================================================================ */
+:root{
+  --o-ink:#171a17;          /* 原版粗黑描边 */
+  --o-grass:#5aad61;        /* 原版菜单/草地绿 */
+  --o-btn:#63c340;          /* 原版亮绿按钮 */
+  --o-panel:#c9ccd0;        /* 原版灰色经典窗 */
+  --o-panel-d:#a9adb2;
+}
+html,body{
+  background:var(--o-grass);
+  font-family:"Trebuchet MS","Segoe UI Rounded",system-ui,-apple-system,"PingFang SC",sans-serif;
+}
+/* 统一原版黑描边粗体字 */
+#logo,#loadlogo,#acclogo,#hudname,#hudlvl,#rotlabel,
+.eslot .ename,.islot .cnt,.islot .hk,.abtn .akey,.tbtn .tkey,
+.mapbtn,#readybtn,#hudxp::after,.zonename,.bstname{
+  text-shadow:
+    -2px -2px 0 var(--o-ink),2px -2px 0 var(--o-ink),-2px 2px 0 var(--o-ink),2px 2px 0 var(--o-ink),
+    0 -2px 0 var(--o-ink),0 2px 0 var(--o-ink),-2px 0 0 var(--o-ink),2px 0 0 var(--o-ink);
+}
+
+/* ---- 菜单:原版绿底 + 白字黑描边 logo ---- */
+#logo,#loadlogo,#acclogo{
+  color:#fff;letter-spacing:1px;font-weight:900;
+  font-size:70px;
+  text-shadow:
+    -3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000,
+    0 -3px 0 #000,0 3px 0 #000,-3px 0 0 #000,3px 0 0 #000,0 7px 12px rgba(0,0,0,.28);
+}
+#loadlogo{color:#fff;}
+#menucenter{gap:12px;}
+#readybtn{
+  background:var(--o-btn);border:3px solid var(--o-ink);border-radius:5px;
+  color:#fff;font-weight:900;font-size:19px;padding:7px 20px;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.35),0 3px 0 rgba(0,0,0,.3);
+}
+#readybtn:hover:not(:disabled){background:#71d14f;}
+#readybtn:disabled{background:#79a86a;color:#eaf5e6;}
+/* 玩家 chip:原版白描边名 + 亮绿 Ready 侧按钮风格 */
+#accountchip{background:transparent;border:none;box-shadow:none;padding:0;}
+#chipname{font-size:20px;font-weight:900;color:#fff;
+  text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 2px 0 #000;}
+#chiplevel{display:none;}
+
+/* ---- 地图按钮:原版 5 色微圆角小按钮,两行排布 ---- */
+#maprow{flex-wrap:wrap;justify-content:center;max-width:210px;gap:4px;margin-top:2px;}
+.mapbtn{
+  min-width:62px;height:25px;padding:0 10px;font-size:12px;font-weight:900;
+  border:2px solid var(--o-ink);border-radius:4px;letter-spacing:.2px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.28);color:#fff;
+}
+.mapbtn.garden{background:#6f9d63;}
+.mapbtn.desert{background:#d3ba6e;}
+.mapbtn.ocean{background:#417cc9;}
+.mapbtn.jungle{background:#3d9450;}
+.mapbtn.hell{background:#a63a31;}
+.mapbtn.pulse{animation:o-pulse 1s ease-in-out infinite;}
+@keyframes o-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);filter:brightness(1.15);}}
+#menuhint,#copyright{font-size:10px;color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.5);}
+
+/* ---- 右上原版服务器延迟面板(菜单) ---- */
+#serverpanel{
+  position:absolute;right:12px;bottom:28px;z-index:3;
+  background:rgba(24,30,25,.72);border:2px solid var(--o-ink);border-radius:6px;
+  padding:6px 10px;font-size:11px;color:#fff;line-height:1.5;min-width:196px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.1);
+}
+#serverpanel .sp-row{display:flex;justify-content:space-between;gap:10px;}
+#serverpanel b{color:#7ee07e;}
+#serverpanel .sp-off{color:#ff8b8b;}
+#serverpanel .sp-hd{color:#d9e4d9;font-size:10px;text-align:right;}
+
+/* ---- 左上原版 5 彩色方图标 ---- */
+#iconrow,#menuicons{top:8px;left:8px;gap:3px;}
+.iconbtn{
+  width:29px;height:29px;border-radius:5px;border:2px solid var(--o-ink);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.32),0 2px 0 rgba(0,0,0,.28);
+  background:#b9bcc0;
+}
+.iconbtn svg{width:17px;height:17px;fill:#fff;filter:drop-shadow(0 1px 0 rgba(0,0,0,.4));}
+.iconbtn:hover{filter:brightness(1.12);background:inherit;}
+#iconrow .iconbtn:nth-child(1),#menuicons .iconbtn:nth-child(1){background:#b7babe;}
+#iconrow .iconbtn:nth-child(2),#menuicons .iconbtn:nth-child(2){background:#8a6fc0;}
+#iconrow .iconbtn:nth-child(3),#menuicons .iconbtn:nth-child(3){background:#d8c9a3;}
+#iconrow .iconbtn:nth-child(4),#menuicons .iconbtn:nth-child(4){background:#5865f2;}
+#iconrow .iconbtn:nth-child(5),#menuicons .iconbtn:nth-child(5){background:#9fc6e8;}
+
+/* ---- HUD 玩家卡:黄笑脸头像 + 绿名条 + 黄绿经验条(黑描边) ---- */
+#hudplayer{top:46px;left:8px;gap:6px;}
+#hudavatar{
+  width:40px;height:40px;border-radius:50%;border:3px solid var(--o-ink);
+  background:#f7d94b;box-shadow:0 2px 0 rgba(0,0,0,.3);
+}
+#hudname{
+  background:#5fbf4b;color:#10300d;border:3px solid var(--o-ink);border-radius:5px;
+  font-weight:900;font-size:14px;padding:1px 12px;box-shadow:inset 0 2px 0 rgba(255,255,255,.4);
+}
+.xpwrap{
+  width:150px;height:17px;background:#3a4436;border:3px solid var(--o-ink);border-radius:5px;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.5);
+}
+#hudxp{background:linear-gradient(180deg,#eef36a,#c9dc34 60%,#aec423);border-radius:2px;}
+#hudlvl{font-size:10px;font-weight:900;color:#fff;
+  text-shadow:0 1.5px 0 #000,1px 0 0 #000,-1px 0 0 #000;}
+
+/* ---- 右上黑底白墙方形小地图 ---- */
+#mapwrap{top:8px;right:8px;}
+#minimap{
+  border-radius:3px;border:3px solid var(--o-ink);background:#050805;
+  box-shadow:0 2px 0 rgba(0,0,0,.35);image-rendering:pixelated;
+}
+#zonename{
+  background:rgba(20,26,20,.78);border:2px solid var(--o-ink);border-radius:4px;
+  font-size:11px;font-weight:900;color:#fff;
+}
+/* 玩家列表(排行榜)贴近原版右侧 */
+#playerlist{
+  top:auto;bottom:74px;right:8px;left:auto;flex-direction:column;align-items:flex-end;gap:3px;
+}
+.prow{
+  background:rgba(18,24,18,.72);border:2px solid var(--o-ink);border-radius:4px;
+  padding:1px 8px 1px 2px;
+}
+.prow.self{border-color:#7ee07e;background:rgba(40,84,46,.78);}
+.prow canvas{width:20px;height:20px;}
+.pname{font-size:11px;font-weight:900;}
+.plvl{font-size:9px;}
+
+/* ---- 底部稀有度色槽 + 数字键(原版) ---- */
+#petalbar{bottom:6px;gap:4px;}
+#equiprow{gap:3px;}
+#invrow{gap:3px;flex-wrap:nowrap;}
+.eslot{
+  width:52px;height:52px;border-radius:4px;border:3px solid var(--o-ink);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.38),0 2px 0 rgba(0,0,0,.3);
+}
+.eslot .ename{
+  bottom:-2px;font-size:11px;font-weight:900;color:#fff;
+  text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 1.5px 0 #000;
+}
+.islot{
+  width:42px;height:42px;border-radius:4px;border:3px solid var(--o-ink);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.35);
+}
+.islot .cnt,.islot .hk{font-size:10px;font-weight:900;}
+/* 槽位下方数字键 (1)(2)... —— 由 JS 在 .ename 下方追加,见 ui.ts buildEquipSlots */
+.eslot .hknum{
+  position:absolute;right:2px;top:1px;font-size:10px;font-weight:900;color:#fff;
+  text-shadow:0 1.5px 0 #000,1px 0 0 #000,-1px 0 0 #000;pointer-events:none;
+}
+
+/* ---- 左下斜置能力键 [Z][X][C](原版) ---- */
+#talentbar{
+  left:8px;bottom:56px;gap:0;
+  transform:rotate(-24deg);transform-origin:bottom left;
+}
+.tbtn{
+  width:42px;height:42px;border-radius:4px;border:3px solid var(--o-ink);
+  background:#b9bcc0;box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 2px 0 rgba(0,0,0,.3);
+  margin-left:0;
+}
+.tbtn:nth-child(2){margin-left:8px;}
+.tbtn:nth-child(3){margin-left:16px;}
+.tbtn svg{fill:#fff;filter:drop-shadow(0 1px 0 rgba(0,0,0,.4));}
+.tbtn.speed{background:#b9bcc0;}
+.tbtn.magnet{background:#b9bcc0;}
+.tbtn.heal{background:#b9bcc0;}
+.tbtn .tkey{
+  right:-6px;bottom:-5px;font-size:10px;font-weight:900;color:#fff;
+  background:transparent;border:none;text-shadow:0 1.5px 0 #000;
+}
+
+/* ---- 右下背包键(原版灰色方键) + 隐藏自作转速盘 ---- */
+#rotwrap{display:none;}
+#actionbar{
+  right:10px;left:auto;bottom:10px;flex-direction:row;gap:4px;
+}
+.abtn{
+  width:38px;height:38px;border-radius:5px;border:3px solid var(--o-ink);
+  background:#b9bcc0;box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 2px 0 rgba(0,0,0,.3);
+}
+.abtn svg{fill:#fff;width:21px;height:21px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35));}
+.abtn.bag,.abtn.talent,.abtn.craft,.abtn.bestiary{background:#b9bcc0;}
+.abtn .akey{right:-5px;bottom:-5px;font-size:10px;border:none;background:transparent;text-shadow:0 1.5px 0 #000;}
+
+/* ---- 聊天:底部左侧原版细条 ---- */
+#chatwrap{left:6px;bottom:6px;width:230px;}
+.chatline{font-size:11px;border-radius:4px;border:2px solid var(--o-ink);}
+#chatinput{border-radius:5px;border:3px solid var(--o-ink);font-weight:700;}
+
+/* ---- 灰色经典设置窗(游戏/图像/控制/其他/数据 标签页) ---- */
+#settingsmodal .modalbox{
+  background:var(--o-panel);border:3px solid var(--o-ink);border-radius:5px;
+  box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.55);
+  color:#20241f;min-width:400px;
+}
+#settingsmodal .mtitle{
+  color:#fff;background:linear-gradient(180deg,#7d838a,#5f666d);
+  border:2px solid var(--o-ink);border-radius:4px 4px 0 0;
+  margin:-18px -18px 12px;padding:7px 12px;font-size:15px;
+  text-shadow:0 1px 0 rgba(0,0,0,.4);
+}
+#settingsmodal .msub{color:rgba(255,255,255,.85);}
+#settingsmodal .stabbar{display:flex;gap:2px;margin:-4px 0 10px;border-bottom:2px solid var(--o-panel-d);}
+#settingsmodal .stab{
+  border:2px solid #9aa0a6;border-bottom:none;border-radius:4px 4px 0 0;
+  background:#d4d7db;color:#3a4038;font-family:inherit;font-size:11px;font-weight:800;
+  padding:4px 10px;cursor:pointer;
+}
+#settingsmodal .stab.active{background:#eeeff1;color:#1c201b;border-color:#7d838a;}
+#settingsmodal .sgroup{
+  color:#3a4038;text-shadow:none;font-size:12px;
+  border-bottom:2px solid var(--o-panel-d);padding-bottom:3px;
+}
+#settingsmodal .srow-server{
+  background:#e2e4e7;border:2px solid #9aa0a6;border-radius:4px;color:#20241f;
+}
+#settingsmodal .srow-server.selected{border-color:#3d8c34;background:#d5e8d2;}
+#settingsmodal .srow-server .sname{text-shadow:none;color:#1c201b;}
+#settingsmodal .srow-server .snote{color:#5a6058;}
+#settingsmodal .srow-server .sstatus{color:#6a7068;}
+#settingsmodal .srow-server .sstatus.online{color:#2e7d32;}
+#settingsmodal .srow-server .sstatus.offline{color:#b0443c;}
+#settingsmodal .scheck{color:#2a2f28;}
+#settingsmodal .scheck input{accent-color:#5aad61;}
+#settingsmodal .ghostbtn{
+  background:#e2e4e7;border:2px solid var(--o-ink);border-radius:4px;
+  color:#20241f;font-weight:800;box-shadow:inset 0 2px 0 rgba(255,255,255,.6);
+}
+#settingsmodal .ghostbtn:hover{background:#edeff1;}
+
+/* ---- 功能面板(背包/天赋/图鉴)贴近原版高饱和蓝绿窗 ---- */
+.fpanel{border-width:4px;}
+.fhead{text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000;}
+
+/* ---- 死亡/暂停按钮原版质感 ---- */
+#deathscreen .modalbox,#pausescreen .modalbox{
+  background:var(--o-panel);border:3px solid var(--o-ink);border-radius:5px;color:#20241f;
+}
+#deathscreen h2,#pausescreen h2{color:#20241f;text-shadow:none;font-weight:900;}
+#deathscreen .dstat,#deathscreen .dhint,#pausescreen .dhint{color:#3a4038;}
+.greenbtn{
+  background:var(--o-btn);border:3px solid var(--o-ink);border-radius:5px;color:#fff;font-weight:900;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.3);
+  text-shadow:0 1.5px 0 rgba(0,0,0,.45);
+}
+
+/* ---- 加载屏白字黑描边 ---- */
+#loadingscreen{background:var(--o-grass);}
+#loadtext{color:#fff;font-weight:800;text-shadow:0 1.5px 0 #000;}
