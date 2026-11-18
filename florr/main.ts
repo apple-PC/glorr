@@ -1,6 +1,6 @@
 // 【装配层】只做组装:sim(唯一权威) + view(只读作画) + ui(只读 + 意图) + input
 // 重写契约:本文件不含任何玩法规则;规则一律在 sim/ 与 data/。
-import { MAX_SLOTS, PLAYER, rarityName } from '@/data/rules';
+import { INPUT_LATENCY, MAX_SLOTS, PLAYER, mobRadius, rarityName } from '@/data/rules';
 import { MOBS } from '@/data/mobs';
 import { getPetal, orbitRadius, rotationSpeed } from '@/data/petals';
 import { TAU } from '@/sim/math';
@@ -126,8 +126,12 @@ sim.onEv = (k, v) => {
 };
 
 sim.onEntGone = (e) => {
-  if (e.kind === 'm') particles.burst(e.x, e.y, MOBS[e.species ?? 0]?.color ?? '#ffffff', 16, 190, 4);
-  else if (e.kind === 'd') particles.burst(e.x, e.y, '#ffffff', 5, 90, 2.5);
+  if (e.kind === 'm') {
+    // 死亡爆发随体型放大:大怪碎得更有分量
+    const r = e.r ?? 24;
+    const n = Math.min(64, Math.round(12 + r * 0.5));
+    particles.burst(e.x, e.y, MOBS[e.species ?? 0]?.color ?? '#ffffff', n, 100 + r * 2, 4 + r * 0.03);
+  } else if (e.kind === 'd') particles.burst(e.x, e.y, '#ffffff', 5, 90, 2.5);
 };
 
 // ---------------------------------------------------------------------------
@@ -301,7 +305,8 @@ function frame(): void {
   if (minimapAcc >= 0.25) {
     minimapAcc = 0;
     ui.drawMinimapFrame();
-    ui.setLatency(0);
+    // 右下延迟面板显示等效 RTT(含轻微抖动),与注入的输入延迟一致
+    ui.setLatency(Math.round(sim.latency + (Math.random() * 40 - 20)));
     ui.setZoneText('Garden');
   }
   listAcc += dt;
@@ -324,7 +329,8 @@ function hitFx(s: { slotList: ({ id: string; cdPct: number } | null)[] }, now: n
       const def2 = MOBS[e.species];
       if (!def2) continue;
       const dx = e.x - px, dy = e.y - py;
-      if (dx * dx + dy * dy < (def2.radius + 13) ** 2) {
+      const hitR = (e.r ?? def2.radius) + 13;
+      if (dx * dx + dy * dy < hitR * hitR) {
         lastHitSfx = now;
         sfx.play('hit');
         particles.spark(px, py, '#fff8d6', ang + Math.PI, 3);
@@ -357,6 +363,8 @@ g.__map = {
   spawn: PLAYER_SPAWN,
   blockedLake: blocked(0, 0, 0),
   blockedSpawn: blocked(PLAYER_SPAWN[0], PLAYER_SPAWN[1], 26),
+  inputLatency: INPUT_LATENCY,
+  sizeCurve: [0, 1, 2, 3, 4].map((r) => mobRadius(30, r)),
 };
 g.__gardenCanvas = getGardenCanvas();
 import { CONTENT_STATS } from '@/data/areas';

@@ -21,7 +21,10 @@ export interface EntState {
   vx?: number;
   vy?: number;
   projKind?: string;
+  /** 怪物实际半径(随稀有度放大,渲染与命中共用) */
   r?: number;
+  /** 受击闪白剩余秒数 */
+  hitFlash?: number;
 }
 
 export interface SelfState {

@@ -1,7 +1,7 @@
 // glorr 单机本地模拟:在浏览器内跑完整权威模拟(怪物 AI / 花瓣轨道 / 碰撞 / 掉落 / 合成 / 升级 / 背包)
 // 实现与 Net 相同的 GameConn 公共接口,渲染层与 UI 无需感知是单机还是联机。
 import * as C from '@/data/rules';
-import { blocked, randomSpawnPoint, PLAYER_SPAWN } from '@/sim/geometry';
+import { blocked, randomSpawnPoint, PLAYER_SPAWN, ZONES } from '@/sim/geometry';
 import { getMob, SPECIES_INDEX } from '@/data/mobs';
 import {
   getPetal,
@@ -67,7 +67,17 @@ interface MobEnt {
   id: number;
   defId: string;
   species: number;
+  /** 所属刷怪区,越区游荡后仍保留出生区(用于配额补给) */
+  zoneId: string;
   rarity: number;
+  /** 随稀有度放大的实际半径(视觉/碰撞/命中共用) */
+  radius: number;
+  /** 受击闪白剩余秒数 */
+  hitFlash: number;
+  /** 定向越区游荡剩余秒数(>0 正在跨区移动) */
+  roamT: number;
+  /** 越区游荡冷却秒数 */
+  roamCd: number;
   hp: number;
   maxHp: number;
   x: number;
@@ -118,7 +128,9 @@ export class LocalSim implements GameConn {
   ents = new Map<number, EntState>();
   othersLoadout = new Map<number, [string, number][]>();
   othersInfo = new Map<number, OtherInfo>();
-  latency = 0;
+  latency = C.INPUT_LATENCY * 1000;
+  /** 输入延迟队列:指令带到期时间,模拟时间到点才生效(还原原版约 400ms 的 RTT 手感) */
+  private inputQueue: { x: number; y: number; expand: -1 | 0 | 1; at: number }[] = [];
 
   onWelcome: (() => void) | null = null;
   onYou: ((s: SelfState) => void) | null = null;
@@ -202,9 +214,13 @@ export class LocalSim implements GameConn {
   send(msg: ClientMsg): void {
     switch (msg.t) {
       case 'in':
-        this.inputX = msg.x;
-        this.inputY = msg.y;
-        this.setStance((msg.expand ?? 0) as -1 | 0 | 1);
+        // 还原 florr 权威服务器的输入往返延迟:指令排队,约 400ms 后才作用于模拟
+        this.inputQueue.push({
+          x: msg.x,
+          y: msg.y,
+          expand: (msg.expand ?? 0) as -1 | 0 | 1,
+          at: this.time + C.INPUT_LATENCY,
+        });
         break;
       case 'equip':
         this.equip(msg.uid, msg.slot);
@@ -281,6 +297,16 @@ export class LocalSim implements GameConn {
   tick(dt: number): void {
     dt = Math.min(Math.max(dt, 0), 0.05);
     this.time += dt;
+    // 到期的输入指令按顺序生效;同一批次只采纳最新一条(中间态无需逐帧回放)
+    let pending: (typeof this.inputQueue)[number] | undefined;
+    while (this.inputQueue.length && this.inputQueue[0].at <= this.time) {
+      pending = this.inputQueue.shift();
+    }
+    if (pending) {
+      this.inputX = pending.x;
+      this.inputY = pending.y;
+      this.setStance(pending.expand);
+    }
     this.stance += (this.stanceTarget - this.stance) * Math.min(1, 9 * dt);
     if (!this.dead) this.updatePlayer(dt);
     this.updateMobs(dt);
@@ -410,6 +436,7 @@ export class LocalSim implements GameConn {
   private updateMobs(dt: number): void {
     const now = this.time;
     for (const m of this.mobs.values()) {
+      if (m.hitFlash > 0) m.hitFlash = Math.max(0, m.hitFlash - dt);
       const def = getMob(m.defId);
       const dmgMult = C.MOB_DMG_MULT[m.rarity] ?? 1;
       const behavior: 'passive' | 'neutral' | 'aggressive' | 'static' =
@@ -450,16 +477,30 @@ export class LocalSim implements GameConn {
             m.y += Math.sin(a) * def.speed * dt;
           }
         } else {
-          m.wanderT -= dt;
-          if (m.wanderT <= 0) {
-            m.wanderT = rand(1.5, 3.5);
-            m.wanderAng = Math.random() * TAU;
+          // 偶尔越区游荡:外圈怪往中心逛、内圈怪往外逛,还原原版"漏网之怪"的鲜活感
+          m.roamCd -= dt;
+          if (m.roamT > 0) {
+            m.roamT -= dt;
+            if (m.roamT <= 0) m.roamCd = rand(35, 75);
+          } else if (m.roamCd <= 0 && Math.random() < 0.0008) {
+            const r = Math.hypot(m.x, m.y);
+            const dir = r > 1600 ? Math.atan2(-m.y, -m.x) : Math.atan2(m.y, m.x);
+            m.wanderAng = dir + rand(-0.45, 0.45);
+            m.wanderT = rand(10, 18);
+            m.roamT = m.wanderT;
+          } else {
+            m.wanderT -= dt;
+            if (m.wanderT <= 0) {
+              m.wanderT = rand(1.5, 3.5);
+              m.wanderAng = Math.random() * TAU;
+            }
           }
           m.ang = m.wanderAng;
-          m.x += Math.cos(m.wanderAng) * def.speed * 0.35 * dt;
-          m.y += Math.sin(m.wanderAng) * def.speed * 0.35 * dt;
+          const moveMul = m.roamT > 0 ? 1.1 : 0.35;
+          m.x += Math.cos(m.wanderAng) * def.speed * moveMul * dt;
+          m.y += Math.sin(m.wanderAng) * def.speed * moveMul * dt;
         }
-        if (blocked(m.x, m.y, Math.min(26, def.radius))) {
+        if (blocked(m.x, m.y, Math.min(26, m.radius))) {
           m.x = ox;
           m.y = oy;
           m.wanderT = 0;
@@ -468,8 +509,8 @@ export class LocalSim implements GameConn {
 
       // 接触:花瓣挡在中间时只消耗花瓣,不直接咬到花心
       m.attackCd -= dt;
-      if (!this.dead && dist(m.x, m.y, this.x, this.y) < def.radius + C.PLAYER.radius * 0.8) {
-        if (this.petalAt(m.x, m.y, def.radius)) {
+      if (!this.dead && dist(m.x, m.y, this.x, this.y) < m.radius + C.PLAYER.radius * 0.8) {
+        if (this.petalAt(m.x, m.y, m.radius)) {
           const a = Math.atan2(m.y - this.y, m.x - this.x);
           m.x += Math.cos(a) * 8;
           m.y += Math.sin(a) * 8;
@@ -507,8 +548,22 @@ export class LocalSim implements GameConn {
   private maintainMobs(): void {
     const target = 150;
     if (this.mobs.size >= target) return;
+    // 分区配额:优先补最缺的区,避免随机撒点造成某区空、某区挤
+    const totalW = ZONES.reduce((s, z) => s + z.weight, 0) || 1;
+    const counts = new Map<string, number>();
+    for (const z of ZONES) counts.set(z.id, 0);
+    for (const m of this.mobs.values()) counts.set(m.zoneId, (counts.get(m.zoneId) ?? 0) + 1);
     for (let i = 0; i < 3 && this.mobs.size < target; i++) {
-      const spot = randomSpawnPoint();
+      let need = ZONES[0];
+      let worst = -Infinity;
+      for (const z of ZONES) {
+        const lack = (z.weight / totalW) * target - (counts.get(z.id) ?? 0);
+        if (lack > worst) {
+          worst = lack;
+          need = z;
+        }
+      }
+      const spot = randomSpawnPoint(need.id);
       if (!spot) continue;
       const speciesId = spot.zone.species[Math.floor(Math.random() * spot.zone.species.length)];
       if (!speciesId) continue;
@@ -520,7 +575,12 @@ export class LocalSim implements GameConn {
         id,
         defId: speciesId,
         species: SPECIES_INDEX.get(speciesId) ?? 0,
+        zoneId: spot.zone.id,
         rarity,
+        radius: C.mobRadius(def.radius, rarity),
+        hitFlash: 0,
+        roamT: 0,
+        roamCd: rand(0, 30),
         hp: def.hp * hpMult,
         maxHp: def.hp * hpMult,
         x: spot.x,
@@ -533,6 +593,7 @@ export class LocalSim implements GameConn {
         wanderAng: Math.random() * TAU,
         wanderT: rand(1, 3),
       });
+      counts.set(spot.zone.id, (counts.get(spot.zone.id) ?? 0) + 1);
     }
   }
 
@@ -542,6 +603,7 @@ export class LocalSim implements GameConn {
     const armor = (def.armor ?? 0) * (C.MOB_ARMOR_MULT[m.rarity] ?? 1);
     const real = Math.max(1, dmg - armor);
     m.hp -= real;
+    m.hitFlash = 0.16;
     this.onFloat?.(m.x + rand(-6, 6), m.y - 22, String(Math.round(real)), '#ffffff');
     if (def.behavior === 'neutral') {
       m.retaliateUntil = this.time + 6;
@@ -633,14 +695,15 @@ export class LocalSim implements GameConn {
         if (this.dead || s.hitCd > 0) continue;
         for (const m of this.mobs.values()) {
           const md = getMob(m.defId);
-          const rr = md.radius + 13;
+          const rr = m.radius + 13;
           if (dist2(m.x, m.y, px, py) < rr * rr) {
             s.hitCd = 0.35;
             this.damageMob(m, petalDmg(def, s.rarity));
-            // 碰撞击退:怪物被花瓣顶开一点
+            // 碰撞击退:大怪更难顶动,小怪被明显推开
             const kb = Math.atan2(m.y - py, m.x - px);
-            m.x += Math.cos(kb) * 6;
-            m.y += Math.sin(kb) * 6;
+            const kbDist = Math.max(2, 9 * (26 / Math.max(26, m.radius)));
+            m.x += Math.cos(kb) * kbDist;
+            m.y += Math.sin(kb) * kbDist;
             if (def.onHitHeal) {
               const h = petalOnHitHeal(def, s.rarity);
               this.hp = Math.min(this.maxHp, this.hp + h);
@@ -740,8 +803,7 @@ export class LocalSim implements GameConn {
       }
       let hit = false;
       for (const m of this.mobs.values()) {
-        const md = getMob(m.defId);
-        const rr = md.radius + 6;
+        const rr = m.radius + 6;
         if (dist2(p.x, p.y, m.x, m.y) < rr * rr) {
           this.damageMob(m, p.dmg);
           hit = true;
@@ -922,6 +984,8 @@ export class LocalSim implements GameConn {
       }
       e.species = m.species;
       e.rarity = m.rarity;
+      e.r = m.radius;
+      e.hitFlash = m.hitFlash;
       e.hpPct = m.maxHp > 0 ? m.hp / m.maxHp : 0;
     }
 

@@ -204,7 +204,8 @@ export class Renderer {
       const [rx, ry] = net.renderPos(e);
       const def = MOBS[e.species];
       if (!def) continue;
-      if (!this.inView(cam, rx, ry, def.radius + 60)) continue;
+      const mobRadius = e.r ?? def.radius;
+      if (!this.inView(cam, rx, ry, mobRadius + 60)) continue;
       // 朝向:由位移推导并平滑
       const mvx = e.x - e.px;
       const mvy = e.y - e.py;
@@ -217,7 +218,7 @@ export class Renderer {
         ang += d * 0.35;
         this.mobAngles.set(id, ang);
       }
-      drawMob(ctx, e.species, rx, ry, def.radius, ang, e.rarity ?? 0, time, e.hpPct ?? 1, 0);
+      drawMob(ctx, e.species, rx, ry, mobRadius, ang, e.rarity ?? 0, time, e.hpPct ?? 1, e.hitFlash ?? 0);
     }
 
     // 其他玩家

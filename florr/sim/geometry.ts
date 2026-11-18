@@ -173,14 +173,16 @@ function weightedPick(w: number[]): number {
   return w.length - 1;
 }
 
-/** 随机合法刷怪点(按分区权重,落在可行走处) */
-export function randomSpawnPoint(): { x: number; y: number; zone: GardenZone } | null {
+/** 随机合法刷怪点(按分区权重;指定 zoneId 时只在该区选点,用于分区配额补给) */
+export function randomSpawnPoint(zoneId?: string): { x: number; y: number; zone: GardenZone } | null {
+  const pool = zoneId ? ZONES.filter((z) => z.id === zoneId) : ZONES;
+  if (!pool.length) return null;
   let total = 0;
-  for (const z of ZONES) total += z.weight;
+  for (const z of pool) total += z.weight;
   for (let attempt = 0; attempt < 60; attempt++) {
     let r = Math.random() * total;
-    let zoneSel: GardenZone = ZONES[0];
-    for (const z of ZONES) {
+    let zoneSel: GardenZone = pool[0];
+    for (const z of pool) {
       r -= z.weight;
       if (r <= 0) {
         zoneSel = z;

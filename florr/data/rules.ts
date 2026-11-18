@@ -4,6 +4,22 @@ export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 export const TICK_MS = 1000 / TICK_HZ;
 
+// ---------- 原版手感:输入延迟 ----------
+/**
+ * florr 是权威服务器架构,输入到画面反馈约 400ms(RTT + 服务器 tick)。
+ * 纯前端没有这段延迟会"过于跟手",反而失去原版手感,故在模拟入口注入等量延迟。
+ */
+export const INPUT_LATENCY = 0.4; // 秒
+
+// ---------- 怪物体型(视觉与碰撞共用) ----------
+/** 高稀有度怪显著更大:约每级 ×1.45(近似,非 wiki 精确值) */
+export const MOB_SIZE_MULT = [1, 1.45, 2.1, 3.05, 4.42, 6.4, 9.3, 13.5, 19.5, 28];
+/** 统一体型函数:渲染半径、碰撞半径、命中判定都走这里,保证所见即所碰 */
+export function mobRadius(base: number, rarity: number): number {
+  const mul = MOB_SIZE_MULT[rarity] ?? Math.pow(1.45, rarity);
+  return Math.min(base * mul, 210); // 封顶,避免极端巨型怪把通道堵死
+}
+
 // ---------- 稀有度体系(与花瓣/怪物共享) ----------
 export const RARITY_IDS = [
   'common', 'unusual', 'rare', 'epic', 'legendary',

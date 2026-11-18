@@ -123,7 +123,30 @@ async function main(): Promise<void> {
   if (typeof lakeUrl === 'string' && lakeUrl.startsWith('data:image')) {
     fs.writeFileSync('/tmp/glorr_lake.png', Buffer.from(lakeUrl.split(',')[1], 'base64'));
   }
-  console.log('截图已保存: /tmp/glorr_full.png , /tmp/glorr_map.png , /tmp/glorr_lake.png');
+  // 体型分级对比:把 6 只被动怪排成不同稀有度,核对放大后的视觉表现
+  await cdp.eval(`document.getElementById('hud').style.display=''; document.getElementById('minimap').style.display='';`);
+  await cdp.eval(`(() => {
+    const sim = window.__glorr;
+    const me = sim.selfEnt();
+    if (!me) return 0;
+    const all = Array.from(sim.mobs.values());
+    const passive = all.filter((m) => ['rock', 'ladybug', 'baby_ant', 'worker_ant'].includes(m.defId));
+    const mobs = (passive.length >= 6 ? passive : all).slice(0, 6);
+    const rs = [0, 1, 2, 3, 4, 5];
+    for (let i = 0; i < mobs.length; i++) {
+      const m = mobs[i];
+      m.rarity = rs[i];
+      m.radius = Math.min(24 * Math.pow(1.45, rs[i]), 210);
+      m.x = me.x + (i - 2.5) * 150;
+      m.y = me.y - 430;
+      m.hp = m.maxHp = 999999;
+      m.wanderT = 999; m.roamT = 0; m.wanderAng = 0;
+    }
+    return mobs.length;
+  })()`);
+  await new Promise((r) => setTimeout(r, 500));
+  await cdp.shot('/tmp/glorr_sizes.png');
+  console.log('截图已保存: /tmp/glorr_full.png , /tmp/glorr_map.png , /tmp/glorr_lake.png , /tmp/glorr_sizes.png');
   cdp.close();
   srv.close();
   chrome.kill('SIGKILL');
